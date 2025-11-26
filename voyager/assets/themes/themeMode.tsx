@@ -2,14 +2,11 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import Themes from './themes';
 
 type ThemeMode = 'light' | 'dark';
-type ColorScheme = 'blue' | 'grey';
 
 interface ThemeContextType {
-  theme: typeof Themes.lightBlue | typeof Themes.darkBlue | typeof Themes.lightGrey | typeof Themes.darkGrey;
+  theme: typeof Themes.light | typeof Themes.dark;
   themeMode: ThemeMode;
-  colorScheme: ColorScheme;
   toggleTheme: () => void;
-  toggleColorScheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -20,31 +17,20 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [colorScheme, setColorScheme] = useState<ColorScheme>('grey');
   
   const getTheme = () => {
-    if (themeMode === 'light') {
-      return colorScheme === 'blue' ? Themes.lightBlue : Themes.lightGrey;
-    } else {
-      return colorScheme === 'blue' ? Themes.darkBlue : Themes.darkGrey;
-    }
+    return themeMode === 'light' ? Themes.light : Themes.dark;
   };
   
   const toggleTheme = () => {
     setThemeMode(prevMode => prevMode === 'light' ? 'dark' : 'light');
   };
 
-  const toggleColorScheme = () => {
-    setColorScheme(prevScheme => prevScheme === 'blue' ? 'grey' : 'blue');
-  };
-
   return (
     <ThemeContext.Provider value={{ 
       theme: getTheme(), 
       themeMode, 
-      colorScheme, 
-      toggleTheme, 
-      toggleColorScheme 
+      toggleTheme 
     }}>
       {children}
     </ThemeContext.Provider>
