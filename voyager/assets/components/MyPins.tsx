@@ -2,13 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../themes/themeMode';
 
-const TripPlan: React.FC = () => {
+const MyPins: React.FC = () => {
   const { theme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Text style={[styles.placeholderText, { color: theme.text }]}>
-        Trip Plan incoming
+        My Pins incoming
       </Text>
     </View>
   );
@@ -26,6 +26,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TripPlan;
+export default MyPins;
 
 
