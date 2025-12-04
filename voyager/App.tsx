@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, SafeAreaView } from 'react-native';
+import type { StatusBarStyle } from 'expo-status-bar';
+import { StyleSheet, View, SafeAreaView, ActivityIndicator } from 'react-native';
 import { ThemeProvider, useTheme } from './assets/themes/themeMode';
+import { AuthProvider, useAuth } from './assets/contexts/AuthContext';
 import Header from './assets/components/Header';
 import Map from './assets/components/Map';
 import MyPins from './assets/components/MyPins';
@@ -11,6 +13,7 @@ import Footer from './assets/components/footer';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
+  const { loading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'Map' | 'MyPins' | 'TripPlan' | 'Settings'>('Map');
 
@@ -29,9 +32,20 @@ const AppContent: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        <StatusBar style={theme.statusBar as StatusBarStyle} />
+        <View style={[styles.loadingContainer, { backgroundColor: theme.bg }]}>
+          <ActivityIndicator size="large" color={theme.text} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar style={theme.statusBar} />
+      <StatusBar style={theme.statusBar as StatusBarStyle} />
       <Header />
       <View style={styles.content}>{renderContent()}</View>
       <Footer activeTab={activeTab} onTabPress={setActiveTab} />
@@ -42,7 +56,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
@@ -54,4 +70,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+
