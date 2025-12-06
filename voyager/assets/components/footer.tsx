@@ -34,14 +34,14 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
       },
       {
         key: "MyPins",
-        label: "My Pins",
+        label: "Pins",
         icon: (color) => (
-          <FontAwesome5 name="sticky-note" size={24} color={color} />
+          <MaterialIcons name="push-pin" size={24} color={color} />
         ),
       },
       {
         key: "TripPlan",
-        label: "Trip Plan",
+        label: "Planning",
         icon: (color) => (
           <MaterialIcons name="luggage" size={26} color={color} />
         ),
