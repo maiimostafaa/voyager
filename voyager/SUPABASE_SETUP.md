@@ -2,6 +2,23 @@
 
 This guide will help you set up Supabase for the Voyager app.
 
+## 🗄️ Database Schema Overview
+
+The Voyager database consists of the following tables:
+
+| Table | Purpose |
+|-------|---------|
+| `profiles` | User profiles |
+| `posts` | User recommendations/pins |
+| `post_tags` | Tags for posts |
+| `post_images` | Images for posts |
+| `locations_traveled` | Places user has visited |
+| `friendships` | Friend connections |
+| `trip_plans` | Trip itineraries |
+| `trip_plan_days` | Daily items in trips |
+
+All tables are defined in `lib/supabase/schema.sql` with Row Level Security (RLS) policies, triggers, and relationships configured.
+
 ## 1. Create a Supabase Project
 
 1. Go to [https://app.supabase.com](https://app.supabase.com)
