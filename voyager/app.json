@@ -26,6 +26,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "voyager"
+    "scheme": "voyager",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

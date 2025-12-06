@@ -55,17 +55,10 @@ const AuthScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
-        <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: theme.accent }]}
-          onPress={handleLogout}
-        >
-          <MaterialIcons name="logout" size={20} color={theme.text} />
-          <Text style={[styles.logoutButtonText, { color: theme.text }]}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-      <ProfileScreen onEditPress={() => setViewMode('edit')} />
+      <ProfileScreen 
+        onEditPress={() => setViewMode('edit')}
+        onSignOut={handleLogout}
+      />
     </View>
   );
 };
@@ -73,30 +66,6 @@ const AuthScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    gap: 6,
-  },
-  logoutButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
 

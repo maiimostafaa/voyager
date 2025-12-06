@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import type { StatusBarStyle } from 'expo-status-bar';
 import { StyleSheet, View, SafeAreaView, ActivityIndicator } from 'react-native';
+import { useFonts } from 'expo-font';
 import { ThemeProvider, useTheme } from './assets/themes/themeMode';
 import { AuthProvider, useAuth } from './assets/contexts/AuthContext';
 import Header from './assets/components/Header';
@@ -54,6 +55,17 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    'Bodoni-Regular': require('./assets/fonts/BodoniflfRoman-vmAD.ttf'),
+    'Bodoni-Bold': require('./assets/fonts/BodoniflfBold-MVZx.ttf'),
+    'Bodoni-Italic': require('./assets/fonts/BodoniflfItalic-2OEw.ttf'),
+    'Bodoni-BoldItalic': require('./assets/fonts/BodoniflfBolditalic-K7dD.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <ThemeProvider>
       <AuthProvider>

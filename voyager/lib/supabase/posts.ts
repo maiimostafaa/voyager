@@ -54,6 +54,45 @@ export const getPostTags = async (postId: string): Promise<PostTag[]> => {
   return data || [];
 };
 
+export interface PostWithTags extends Post {
+  tags: PostTag[];
+}
+
+export const getPostsWithTags = async (): Promise<PostWithTags[]> => {
+  // Get all posts (RLS automatically filters to own posts and accepted friends' posts)
+  const posts = await getPosts();
+
+  if (posts.length === 0) {
+    return [];
+  }
+
+  // Get all tags for all posts in one query
+  const postIds = posts.map(p => p.id);
+  const { data: allTags, error: tagsError } = await supabase
+    .from('post_tags')
+    .select('*')
+    .in('post_id', postIds);
+
+  if (tagsError) {
+    console.error('Error fetching post tags:', tagsError);
+  }
+
+  // Group tags by post_id
+  const tagsByPostId = (allTags || []).reduce((acc, tag) => {
+    if (!acc[tag.post_id]) {
+      acc[tag.post_id] = [];
+    }
+    acc[tag.post_id].push(tag);
+    return acc;
+  }, {} as Record<string, PostTag[]>);
+
+  // Combine posts with their tags
+  return posts.map(post => ({
+    ...post,
+    tags: tagsByPostId[post.id] || [],
+  }));
+};
+
 export const getPostImages = async (postId: string): Promise<PostImage[]> => {
   const { data, error } = await supabase
     .from('post_images')

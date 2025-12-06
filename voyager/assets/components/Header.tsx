@@ -1,27 +1,43 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useTheme } from '../themes/themeMode';
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../themes/themeMode";
 
 const Header: React.FC = () => {
   const { theme, themeMode, toggleTheme } = useTheme();
 
-  const logoSource = themeMode === 'light' 
-    ? require('../images/darklogo.png')
-    : require('../images/lightlogo.png');
+  const logoSource =
+    themeMode === "light"
+      ? require("../images/darklogo.png")
+      : require("../images/lightlogo.png");
 
   return (
-    <View style={[styles.header, { backgroundColor: theme.bg, borderBottomColor: theme.border }]}>
+    <View
+      style={[
+        styles.header,
+        { backgroundColor: theme.bg, borderBottomColor: theme.border },
+      ]}
+    >
       <View style={styles.titleContainer}>
         <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-        <Text style={[styles.title, { color: theme.text }]}>Voyager</Text>
+        <Text
+          style={[
+            styles.title,
+            { color: theme.text, fontFamily: theme.fonts.bold },
+          ]}
+        >
+          Voyager
+        </Text>
       </View>
       <TouchableOpacity
         style={[styles.button, { backgroundColor: theme.hover }]}
         onPress={toggleTheme}
       >
-        <Text style={[styles.buttonText, { color: theme.text }]}>
-          {themeMode === 'light' ? '☀️' : '🌙'}
-        </Text>
+        <Ionicons
+          name={themeMode === "light" ? "sunny" : "moon"}
+          size={22}
+          color={theme.text}
+        />
       </TouchableOpacity>
     </View>
   );
@@ -33,13 +49,13 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   logo: {
@@ -48,20 +64,17 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
+    lineHeight: 34,
+    includeFontPadding: false,
   },
   button: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
 export default Header;
-
