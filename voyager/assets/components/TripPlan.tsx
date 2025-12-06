@@ -241,7 +241,7 @@ const TripPlan: React.FC = () => {
 
         {!startDate && !endDate && (
           <View style={styles.emptyState}>
-            <MaterialIcons name="flight" size={48} color={theme.text} />
+            <MaterialIcons name="luggage" size={48} color={theme.text} />
             <Text style={[styles.emptyStateText, { color: theme.text }]}>
               Select your travel dates to start planning
             </Text>
