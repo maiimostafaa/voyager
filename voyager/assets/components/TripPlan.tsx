@@ -12,10 +12,11 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
+import { palette } from '../themes/palette';
 
 
 const TripPlan: React.FC = () => {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [location, setLocation] = useState('');
@@ -119,7 +120,10 @@ const TripPlan: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Date & Location Selection Section */}
-        <View style={[styles.selectionSection, { backgroundColor: theme.accent, borderColor: theme.border }]}>
+        <View style={[styles.selectionSection, { 
+          backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
+          borderColor: theme.border 
+        }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Plan Your Trip</Text>
           
           {/* Date Selection */}
@@ -127,12 +131,15 @@ const TripPlan: React.FC = () => {
             <View style={styles.dateInputContainer}>
               <Text style={[styles.dateLabel, { color: theme.text }]}>Start Date</Text>
               <TouchableOpacity
-                style={[styles.dateInputWrapper, { borderColor: theme.border }]}
+                style={[styles.dateInputWrapper, { 
+                  borderColor: theme.border, 
+                  backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text 
+                }]}
                 onPress={() => openDatePicker('start')}
                 activeOpacity={0.7}
               >
-                <MaterialIcons name="calendar-today" size={20} color={theme.text} style={styles.inputIcon} />
-                <Text style={[styles.dateInput, { color: startDate ? theme.text : theme.textSecondary }]}>
+                <MaterialIcons name="calendar-today" size={20} color={themeMode === 'light' ? palette.darkBlueText : theme.bg} style={styles.inputIcon} />
+                <Text style={[styles.dateInput, { color: themeMode === 'light' ? palette.darkBlueText : theme.bg }]}>
                   {startDate ? formatDateForDisplay(startDate) : 'Select date'}
                 </Text>
               </TouchableOpacity>
@@ -145,12 +152,15 @@ const TripPlan: React.FC = () => {
             <View style={styles.dateInputContainer}>
               <Text style={[styles.dateLabel, { color: theme.text }]}>End Date</Text>
               <TouchableOpacity
-                style={[styles.dateInputWrapper, { borderColor: theme.border }]}
+                style={[styles.dateInputWrapper, { 
+                  borderColor: theme.border, 
+                  backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text 
+                }]}
                 onPress={() => openDatePicker('end')}
                 activeOpacity={0.7}
               >
-                <MaterialIcons name="calendar-today" size={20} color={theme.text} style={styles.inputIcon} />
-                <Text style={[styles.dateInput, { color: endDate ? theme.text : theme.textSecondary }]}>
+                <MaterialIcons name="calendar-today" size={20} color={themeMode === 'light' ? palette.darkBlueText : theme.bg} style={styles.inputIcon} />
+                <Text style={[styles.dateInput, { color: themeMode === 'light' ? palette.darkBlueText : theme.bg }]}>
                   {endDate ? formatDateForDisplay(endDate) : 'Select date'}
                 </Text>
               </TouchableOpacity>
@@ -160,14 +170,17 @@ const TripPlan: React.FC = () => {
           {/* Location Input */}
           <View style={styles.locationContainer}>
             <Text style={[styles.dateLabel, { color: theme.text }]}>Location</Text>
-            <View style={[styles.locationInputWrapper, { borderColor: theme.border }]}>
-              <MaterialIcons name="location-on" size={20} color={theme.text} style={styles.inputIcon} />
+            <View style={[styles.locationInputWrapper, { 
+              borderColor: theme.border, 
+              backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text 
+            }]}>
+              <MaterialIcons name="location-on" size={20} color={themeMode === 'light' ? palette.darkBlueText : theme.bg} style={styles.inputIcon} />
               <TextInput
-                style={[styles.locationInput, { color: theme.text }]}
+                style={[styles.locationInput, { color: themeMode === 'light' ? palette.darkBlueText : theme.bg }]}
                 value={location}
                 onChangeText={setLocation}
                 placeholder="Where are you going?"
-                placeholderTextColor={theme.textSecondary}
+                placeholderTextColor={themeMode === 'light' ? palette.darkBlueText : theme.bg}
               />
             </View>
           </View>
@@ -195,7 +208,10 @@ const TripPlan: React.FC = () => {
                 >
                   {/* Circular Plus Button */}
                   <TouchableOpacity
-                    style={[styles.circularAddButton, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                    style={[styles.circularAddButton, { 
+                      backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
+                      borderColor: theme.border 
+                    }]}
                     onPress={() => {
                       // Temporary - not functioning yet
                       console.log(`Add activity for Day ${dayNumber}`);
@@ -225,8 +241,8 @@ const TripPlan: React.FC = () => {
 
         {!startDate && !endDate && (
           <View style={styles.emptyState}>
-            <MaterialIcons name="flight" size={48} color={theme.textSecondary} />
-            <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+            <MaterialIcons name="flight" size={48} color={theme.text} />
+            <Text style={[styles.emptyStateText, { color: theme.text }]}>
               Select your travel dates to start planning
             </Text>
           </View>
@@ -242,8 +258,11 @@ const TripPlan: React.FC = () => {
           onRequestClose={cancelDatePicker}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.accent, borderColor: theme.border }]}>
-              <View style={styles.modalHeader}>
+            <View style={[styles.modalContent, { 
+              backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
+              borderColor: theme.border 
+            }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }]}>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>
                   Select {datePickerMode === 'start' ? 'Start' : 'End'} Date
                 </Text>
@@ -256,6 +275,7 @@ const TripPlan: React.FC = () => {
                 minimumDate={datePickerMode === 'end' && startDate ? new Date(startDate) : undefined}
                 style={styles.datePicker}
                 textColor={theme.text}
+                themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
               />
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -284,6 +304,7 @@ const TripPlan: React.FC = () => {
           display="default"
           onChange={handleDateChange}
           minimumDate={datePickerMode === 'end' && startDate ? new Date(startDate) : undefined}
+          themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
         />
       )}
     </View>
@@ -372,7 +393,6 @@ const styles = StyleSheet.create({
   modalHeader: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   modalTitle: {
     fontSize: 18,
