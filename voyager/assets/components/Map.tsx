@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useTheme } from "../themes/themeMode";
+import { palette } from "../themes/palette";
 import { useAuth } from "../contexts/AuthContext";
 import { getPostsWithTags, PostWithTags } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
@@ -319,12 +320,20 @@ const Map: React.FC = () => {
       <TouchableOpacity
         style={[
           styles.fabButton,
-          { backgroundColor: themeMode === 'dark' ? theme.border : theme.accent },
+          { 
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            borderColor: themeMode === 'dark' ? theme.text : theme.border,
+            borderStyle: 'dashed',
+          },
           theme.shadows,
         ]}
         onPress={() => setShowNewPin(true)}
       >
-        <MaterialIcons name="add" size={28} color={themeMode === 'dark' ? theme.text : theme.accentText} />
+        <MaterialIcons 
+          name="add" 
+          size={28} 
+          color={themeMode === 'dark' ? theme.text : palette.lightBlueText} 
+        />
       </TouchableOpacity>
 
       {/* New Pin Modal */}
@@ -491,6 +500,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
     elevation: 8,

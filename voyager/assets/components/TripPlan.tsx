@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
+import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
 import { getTripPlans } from '../../lib/supabase/trips';
 import { TripPlan as TripPlanType } from '../../lib/types/database.types';
 import NewTrip from './NewTrip';
+import SavedTrip from './SavedTrip';
 
 const TripPlan: React.FC = () => {
   const { theme, themeMode } = useTheme();
@@ -21,6 +23,7 @@ const TripPlan: React.FC = () => {
   const [tripPlans, setTripPlans] = useState<TripPlanType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTrip, setShowNewTrip] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -45,19 +48,41 @@ const TripPlan: React.FC = () => {
     }
   };
 
+  // Parse date string (YYYY-MM-DD) to Date object in local timezone
+  const parseDateString = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+    if (!dateString) return '';
+    const date = parseDateString(dateString);
+    if (isNaN(date.getTime())) return dateString;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const handleTripPress = (trip: TripPlanType) => {
-    // TODO: Navigate to trip detail view
-    console.log('Trip pressed:', trip);
+    setSelectedTripId(trip.id);
   };
 
   const handleNewTripClose = () => {
     setShowNewTrip(false);
     // Refresh trip plans when modal closes
+    if (user?.id) {
+      fetchTripPlans();
+    }
+  };
+
+  const handleSavedTripClose = () => {
+    setSelectedTripId(null);
+    // Refresh trip plans when modal closes to show any updates
+    if (user?.id) {
+      fetchTripPlans();
+    }
+  };
+
+  const handleTripUpdated = () => {
+    // Refresh trip plans when a trip is updated
     if (user?.id) {
       fetchTripPlans();
     }
@@ -119,15 +144,14 @@ const TripPlan: React.FC = () => {
               >
                 <View style={styles.tripCardHeader}>
                   <MaterialIcons name="luggage" size={24} color={theme.text} />
-                  <Text style={[styles.tripTitle, { color: theme.text }]} numberOfLines={1}>
-                    {trip.title}
-                  </Text>
-                </View>
-                <View style={styles.tripCardDates}>
-                  <MaterialIcons name="calendar-today" size={16} color={theme.textSecondary} />
-                  <Text style={[styles.tripDate, { color: theme.textSecondary }]}>
-                    {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
-                  </Text>
+                  <View style={styles.tripCardTitleContainer}>
+                    <Text style={[styles.tripTitle, { color: theme.text }]} numberOfLines={1}>
+                      {trip.title}
+                    </Text>
+                    <Text style={[styles.tripDate, { color: theme.text }]}>
+                      {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+                    </Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -141,13 +165,19 @@ const TripPlan: React.FC = () => {
           styles.fabButton,
           {
             backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            borderColor: themeMode === 'dark' ? theme.text : theme.border,
+            borderStyle: 'dashed',
           },
           theme.shadows,
         ]}
         onPress={() => setShowNewTrip(true)}
         activeOpacity={0.8}
       >
-        <MaterialIcons name="add" size={28} color={themeMode === 'dark' ? theme.text : theme.accentText} />
+        <MaterialIcons 
+          name="add" 
+          size={28} 
+          color={themeMode === 'dark' ? theme.text : palette.lightBlueText} 
+        />
       </TouchableOpacity>
 
       {/* New Trip Modal */}
@@ -159,6 +189,22 @@ const TripPlan: React.FC = () => {
       >
         <NewTrip onClose={handleNewTripClose} />
       </Modal>
+
+      {/* Saved Trip Modal */}
+      {selectedTripId && (
+        <Modal
+          visible={selectedTripId !== null}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={handleSavedTripClose}
+        >
+          <SavedTrip
+            tripPlanId={selectedTripId}
+            onClose={handleSavedTripClose}
+            onTripUpdated={handleTripUpdated}
+          />
+        </Modal>
+      )}
     </View>
   );
 };
@@ -215,22 +261,19 @@ const styles = StyleSheet.create({
   },
   tripCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
     gap: 12,
+  },
+  tripCardTitleContainer: {
+    flex: 1,
   },
   tripTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    flex: 1,
-  },
-  tripCardDates: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 4,
   },
   tripDate: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   fabButton: {
@@ -240,6 +283,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 8,

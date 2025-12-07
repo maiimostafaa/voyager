@@ -41,7 +41,7 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
       },
       {
         key: "TripPlan",
-        label: "Planning",
+        label: "Trips",
         icon: (color) => (
           <MaterialIcons name="luggage" size={26} color={color} />
         ),
