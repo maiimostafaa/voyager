@@ -16,11 +16,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
-import { getTripPlanWithDays, updateTripPlan } from '../../lib/supabase/trips';
+import { getTripPlanWithDays, updateTripPlan, updateTripDay } from '../../lib/supabase/trips';
 import { TripPlan, TripPlanDay } from '../../lib/types/database.types';
-import { getPostWithDetails } from '../../lib/supabase/posts';
+import { getPostWithDetails, PostWithTags } from '../../lib/supabase/posts';
 import { Post } from '../../lib/types/database.types';
 import { getWeatherForecast, ForecastData, getWeatherIconName, geocodeLocation } from '../../lib/weather';
+import SelectActivity from './SelectActivity';
 
 interface SavedTripProps {
   tripPlanId: string;
@@ -51,6 +52,8 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
   const [datePickerMode, setDatePickerMode] = useState<'start' | 'end' | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [saving, setSaving] = useState(false);
+  const [showSelectActivity, setShowSelectActivity] = useState(false);
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
   // Fetch trip plan and days
   useEffect(() => {
@@ -498,34 +501,53 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
                 >
                   {/* Show post if exists */}
                   {day.post ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.activityCard,
-                        {
-                          backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
-                          borderColor: theme.border,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.activityCardHeader}>
-                        <MaterialIcons name="place" size={20} color={theme.text} />
-                        <Text
-                          style={[styles.activityLocation, { color: theme.text }]}
-                          numberOfLines={1}
-                        >
-                          {day.post.location_name}
-                        </Text>
-                      </View>
-                      {day.post.notes && (
-                        <Text
-                          style={[styles.activityNotes, { color: theme.textSecondary }]}
-                          numberOfLines={2}
-                        >
-                          {day.post.notes}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
+                    <View style={styles.activityCardContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.activityCard,
+                          {
+                            backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedDayId(day.id);
+                          setShowSelectActivity(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.activityCardHeader}>
+                          <MaterialIcons name="place" size={20} color={theme.text} />
+                          <Text
+                            style={[styles.activityLocation, { color: theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {day.post.location_name}
+                          </Text>
+                        </View>
+                        {day.post.notes && (
+                          <Text
+                            style={[styles.activityNotes, { color: theme.textSecondary }]}
+                            numberOfLines={2}
+                          >
+                            {day.post.notes}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.editActivityButton,
+                          { backgroundColor: theme.hover },
+                        ]}
+                        onPress={() => {
+                          setSelectedDayId(day.id);
+                          setShowSelectActivity(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcons name="edit" size={16} color={theme.text} />
+                      </TouchableOpacity>
+                    </View>
                   ) : (
                     <TouchableOpacity
                       style={[
@@ -537,8 +559,8 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
                         },
                       ]}
                       onPress={() => {
-                        // TODO: Add activity functionality
-                        console.log(`Add activity for Day ${day.order}`);
+                        setSelectedDayId(day.id);
+                        setShowSelectActivity(true);
                       }}
                       activeOpacity={0.7}
                     >
@@ -643,6 +665,45 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
           minimumDate={datePickerMode === 'end' && editStartDate ? parseDateString(editStartDate) : undefined}
           themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
         />
+      )}
+
+      {/* Select Activity Modal */}
+      {showSelectActivity && tripPlan && selectedDayId !== null && (
+        <Modal
+          visible={showSelectActivity}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => {
+            setShowSelectActivity(false);
+            setSelectedDayId(null);
+          }}
+        >
+          <SelectActivity
+            location={tripPlan.title}
+            onSelect={async (post: PostWithTags) => {
+              if (user?.id && selectedDayId) {
+                const updated = await updateTripDay(selectedDayId, {
+                  post_id: post.id,
+                });
+                if (updated) {
+                  // Refresh trip data to show the new activity
+                  await fetchTripData();
+                  // Notify parent if callback exists
+                  if (onTripUpdated) {
+                    onTripUpdated();
+                  }
+                }
+              }
+              setShowSelectActivity(false);
+              setSelectedDayId(null);
+            }}
+            onClose={() => {
+              setShowSelectActivity(false);
+              setSelectedDayId(null);
+            }}
+            selectedPostId={days.find((d) => d.id === selectedDayId)?.post_id || null}
+          />
+        </Modal>
       )}
     </SafeAreaView>
   );
@@ -822,12 +883,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 16,
   },
+  editActivityButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  activityCardContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
   activityCard: {
     width: 200,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    marginRight: 16,
     ...{
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },

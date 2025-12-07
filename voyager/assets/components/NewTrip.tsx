@@ -18,6 +18,8 @@ import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
 import { geocodeLocation, getWeatherForecast, ForecastData, getWeatherIconName } from '../../lib/weather';
 import { createTripPlan, addTripDay } from '../../lib/supabase/trips';
+import SelectActivity from './SelectActivity';
+import { PostWithTags } from '../../lib/supabase/posts';
 
 interface NewTripProps {
   onClose: () => void;
@@ -37,6 +39,9 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showSelectActivity, setShowSelectActivity] = useState(false);
+  const [selectedDayForActivity, setSelectedDayForActivity] = useState<number | null>(null);
+  const [dayActivities, setDayActivities] = useState<Map<number, PostWithTags>>(new Map());
 
   // Parse date string (YYYY-MM-DD) to Date object in local timezone
   const parseDateString = (dateString: string): Date => {
@@ -214,9 +219,11 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
       for (let i = 0; i < days.length; i++) {
         const dayNumber = days[i];
         const dayDate = getDayDateString(dayNumber);
+        const activity = dayActivities.get(dayNumber);
         await addTripDay(tripPlan.id, {
           date: dayDate,
           order: dayNumber,
+          post_id: activity?.id,
         });
       }
 
@@ -366,24 +373,56 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
                   contentContainerStyle={styles.dayScrollContent}
                   style={styles.dayScrollView}
                 >
-                  {/* Circular Plus Button */}
-                  <TouchableOpacity
-                    style={[styles.circularAddButton, { 
-                      backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
-                      borderColor: themeMode === 'dark' ? theme.text : theme.border,
-                      borderStyle: 'dashed',
-                    }]}
-                    onPress={() => {
-                      // Temporary - not functioning yet
-                      console.log(`Add activity for Day ${dayNumber}`);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons name="add" size={28} color={theme.text} />
-                  </TouchableOpacity>
-
-                  {/* Placeholder for future activity cards */}
-                  {/* Activity cards will be added here later */}
+                  {/* Show activity card if exists, otherwise show add button */}
+                  {dayActivities.has(dayNumber) ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.activityCard,
+                        {
+                          backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedDayForActivity(dayNumber);
+                        setShowSelectActivity(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.activityCardHeader}>
+                        <MaterialIcons name="place" size={20} color={theme.text} />
+                        <Text
+                          style={[styles.activityLocation, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {dayActivities.get(dayNumber)?.location_name}
+                        </Text>
+                      </View>
+                      {dayActivities.get(dayNumber)?.notes && (
+                        <Text
+                          style={[styles.activityNotes, { color: theme.textSecondary }]}
+                          numberOfLines={2}
+                        >
+                          {dayActivities.get(dayNumber)?.notes}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.circularAddButton, { 
+                        backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
+                        borderColor: themeMode === 'dark' ? theme.text : theme.border,
+                        borderStyle: 'dashed',
+                      }]}
+                      onPress={() => {
+                        setSelectedDayForActivity(dayNumber);
+                        setShowSelectActivity(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcons name="add" size={28} color={theme.text} />
+                    </TouchableOpacity>
+                  )}
                 </ScrollView>
               </View>
             ))}
@@ -513,6 +552,37 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
           minimumDate={datePickerMode === 'end' && startDate ? parseDateString(startDate) : undefined}
           themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
         />
+      )}
+
+      {/* Select Activity Modal */}
+      {showSelectActivity && location && selectedDayForActivity !== null && (
+        <Modal
+          visible={showSelectActivity}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => {
+            setShowSelectActivity(false);
+            setSelectedDayForActivity(null);
+          }}
+        >
+          <SelectActivity
+            location={location}
+            onSelect={(post) => {
+              setDayActivities((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(selectedDayForActivity, post);
+                return newMap;
+              });
+              setShowSelectActivity(false);
+              setSelectedDayForActivity(null);
+            }}
+            onClose={() => {
+              setShowSelectActivity(false);
+              setSelectedDayForActivity(null);
+            }}
+            selectedPostId={dayActivities.get(selectedDayForActivity)?.id}
+          />
+        </Modal>
       )}
     </SafeAreaView>
   );
@@ -796,6 +866,35 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  activityCard: {
+    width: 200,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginRight: 16,
+    ...{
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+  },
+  activityCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  activityLocation: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  activityNotes: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
 
