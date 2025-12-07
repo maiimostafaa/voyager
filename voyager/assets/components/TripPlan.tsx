@@ -25,11 +25,17 @@ const TripPlan: React.FC = () => {
   const [datePickerMode, setDatePickerMode] = useState<'start' | 'end' | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  // Parse date string (YYYY-MM-DD) to Date object in local timezone
+  const parseDateString = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Calculate days when dates change
   useEffect(() => {
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const start = parseDateString(startDate);
+      const end = parseDateString(endDate);
       
       if (end >= start) {
         const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -45,14 +51,14 @@ const TripPlan: React.FC = () => {
 
   const formatDateForDisplay = (dateString: string): string => {
     if (!dateString) return '';
-    const date = new Date(dateString);
+    const date = parseDateString(dateString);
     if (isNaN(date.getTime())) return dateString;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const getDayDate = (dayNumber: number): string => {
     if (!startDate) return '';
-    const start = new Date(startDate);
+    const start = parseDateString(startDate);
     const dayDate = new Date(start);
     dayDate.setDate(start.getDate() + dayNumber - 1);
     return dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -67,9 +73,9 @@ const TripPlan: React.FC = () => {
 
   const openDatePicker = (mode: 'start' | 'end') => {
     if (mode === 'start' && startDate) {
-      setSelectedDate(new Date(startDate));
+      setSelectedDate(parseDateString(startDate));
     } else if (mode === 'end' && endDate) {
-      setSelectedDate(new Date(endDate));
+      setSelectedDate(parseDateString(endDate));
     } else {
       setSelectedDate(new Date());
     }
