@@ -45,9 +45,18 @@ All tables are defined in `lib/supabase/schema.sql` with Row Level Security (RLS
 ```
 EXPO_PUBLIC_SUPABASE_URL=your_project_url_here
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+EXPO_PUBLIC_WEATHER_API_KEY=your_weather_api_key_here
 ```
 
 Replace `your_project_url_here` and `your_anon_key_here` with the values from step 2.
+
+**For Weather API (Optional but recommended for Trip Planning):**
+1. Go to [https://openweathermap.org/api](https://openweathermap.org/api)
+2. Sign up for a free account
+3. Get your API key from the API keys section
+4. Add `EXPO_PUBLIC_WEATHER_API_KEY=your_weather_api_key_here` to your `.env` file
+
+The weather API is used in the Trip Plan feature to show weather icons for each day of your trip.
 
 **Note:** The `.env` file is gitignored, so it won't be committed to your repository.
 

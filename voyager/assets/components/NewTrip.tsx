@@ -9,11 +9,13 @@ import {
   Modal,
   Platform,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
+import { geocodeLocation, getWeatherForecast, ForecastData, getWeatherIconName } from '../../lib/weather';
 
 interface NewTripProps {
   onClose: () => void;
@@ -28,6 +30,9 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'start' | 'end' | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [weatherData, setWeatherData] = useState<Map<string, ForecastData>>(new Map());
+  const [loadingWeather, setLoadingWeather] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   // Parse date string (YYYY-MM-DD) to Date object in local timezone
   const parseDateString = (dateString: string): Date => {
@@ -53,6 +58,42 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
     }
   }, [startDate, endDate]);
 
+  // Fetch weather when location and dates are available
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!location || !startDate || !endDate) {
+        setWeatherData(new Map());
+        return;
+      }
+
+      setLoadingWeather(true);
+      try {
+        // Geocode location
+        const coords = await geocodeLocation(location);
+        if (!coords) {
+          setWeatherData(new Map());
+          setLocationCoords(null);
+          return;
+        }
+
+        setLocationCoords(coords);
+
+        // Fetch weather forecast
+        const forecast = await getWeatherForecast(coords.lat, coords.lon, startDate, endDate);
+        setWeatherData(forecast);
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+        setWeatherData(new Map());
+      } finally {
+        setLoadingWeather(false);
+      }
+    };
+
+    // Debounce weather fetching
+    const timeoutId = setTimeout(fetchWeather, 500);
+    return () => clearTimeout(timeoutId);
+  }, [location, startDate, endDate]);
+
   const formatDateForDisplay = (dateString: string): string => {
     if (!dateString) return '';
     const date = parseDateString(dateString);
@@ -66,6 +107,23 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
     const dayDate = new Date(start);
     dayDate.setDate(start.getDate() + dayNumber - 1);
     return dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getDayDateString = (dayNumber: number): string => {
+    if (!startDate) return '';
+    const start = parseDateString(startDate);
+    const dayDate = new Date(start);
+    dayDate.setDate(start.getDate() + dayNumber - 1);
+    // Format as YYYY-MM-DD using local timezone to match weather API dates
+    const year = dayDate.getFullYear();
+    const month = String(dayDate.getMonth() + 1).padStart(2, '0');
+    const day = String(dayDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getWeatherForDay = (dayNumber: number): ForecastData | null => {
+    const dateStr = getDayDateString(dayNumber);
+    return weatherData.get(dateStr) || null;
   };
 
   const formatDateForInput = (date: Date): string => {
@@ -220,9 +278,39 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
                   <Text style={[styles.dayTitle, { color: theme.text }]}>
                     Day {dayNumber}
                   </Text>
-                  <Text style={[styles.dayDate, { color: theme.text }]}>
-                    {getDayDate(dayNumber)}
-                  </Text>
+                  <View style={styles.dayDateContainer}>
+                    <Text style={[styles.dayDate, { color: theme.text }]}>
+                      {getDayDate(dayNumber)}
+                    </Text>
+                    {location && (() => {
+                      const weather = getWeatherForDay(dayNumber);
+                      if (loadingWeather) {
+                        return (
+                          <ActivityIndicator 
+                            size="small" 
+                            color={theme.textSecondary} 
+                            style={styles.weatherIcon}
+                          />
+                        );
+                      }
+                      if (weather) {
+                        return (
+                          <View style={styles.weatherContainer}>
+                            <MaterialIcons
+                              name={getWeatherIconName(weather.main, weather.description) as any}
+                              size={24}
+                              color={theme.text}
+                              style={styles.weatherIcon}
+                            />
+                            <Text style={[styles.weatherDescription, { color: theme.textSecondary }]}>
+                              {weather.description}
+                            </Text>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </View>
                 </View>
 
                 <ScrollView
@@ -376,7 +464,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   headerSpacer: {
-    width: 48, // Width of previous button (24 icon + 12 padding each side)
+    width: 48, 
     zIndex: 1,
   },
   scrollView: {
@@ -528,9 +616,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  dayDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   dayDate: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  weatherContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  weatherIcon: {
+    marginRight: 4,
+  },
+  weatherDescription: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'capitalize',
   },
   dayScrollView: {
     marginHorizontal: -20,
