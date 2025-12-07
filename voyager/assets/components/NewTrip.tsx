@@ -15,7 +15,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
+import { useAuth } from '../contexts/AuthContext';
 import { geocodeLocation, getWeatherForecast, ForecastData, getWeatherIconName } from '../../lib/weather';
+import { createTripPlan, addTripDay } from '../../lib/supabase/trips';
 
 interface NewTripProps {
   onClose: () => void;
@@ -23,6 +25,7 @@ interface NewTripProps {
 
 const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
   const { theme, themeMode } = useTheme();
+  const { user } = useAuth();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [location, setLocation] = useState('');
@@ -33,6 +36,7 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
   const [weatherData, setWeatherData] = useState<Map<string, ForecastData>>(new Map());
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Parse date string (YYYY-MM-DD) to Date object in local timezone
   const parseDateString = (dateString: string): Date => {
@@ -180,6 +184,51 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
     setDatePickerMode(null);
   };
 
+  const handleSave = async () => {
+    if (!user?.id) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    if (!location || !startDate || !endDate) {
+      console.error('Missing required fields');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Create trip plan with location as title
+      const tripPlan = await createTripPlan(user.id, {
+        title: location,
+        start_date: startDate,
+        end_date: endDate,
+      });
+
+      if (!tripPlan) {
+        console.error('Failed to create trip plan');
+        setSaving(false);
+        return;
+      }
+
+      // Create trip plan days for each day
+      for (let i = 0; i < days.length; i++) {
+        const dayNumber = days[i];
+        const dayDate = getDayDateString(dayNumber);
+        await addTripDay(tripPlan.id, {
+          date: dayDate,
+          order: dayNumber,
+        });
+      }
+
+      // Close modal and refresh trip list
+      onClose();
+    } catch (error) {
+      console.error('Error saving trip:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header with Previous Button */}
@@ -197,7 +246,8 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
+      <View style={styles.contentContainer}>
+        <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -302,9 +352,6 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
                               color={theme.text}
                               style={styles.weatherIcon}
                             />
-                            <Text style={[styles.weatherDescription, { color: theme.textSecondary }]}>
-                              {weather.description}
-                            </Text>
                           </View>
                         );
                       }
@@ -323,7 +370,8 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
                   <TouchableOpacity
                     style={[styles.circularAddButton, { 
                       backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
-                      borderColor: theme.border 
+                      borderColor: themeMode === 'dark' ? theme.text : theme.border,
+                      borderStyle: 'dashed',
                     }]}
                     onPress={() => {
                       // Temporary - not functioning yet
@@ -360,7 +408,49 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
             </Text>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+
+        {/* Save Button */}
+        {location && startDate && endDate && days.length > 0 && (
+          <View style={[styles.saveButtonContainer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+                },
+                theme.shadows,
+              ]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeMode === 'dark' ? theme.text : palette.lightBlueText}
+                />
+              ) : (
+                <>
+                  <MaterialIcons
+                    name="save"
+                    size={20}
+                    color={themeMode === 'dark' ? theme.text : palette.lightBlueText}
+                  />
+                  <Text
+                    style={[
+                      styles.saveButtonText,
+                      { color: themeMode === 'dark' ? theme.text : palette.lightBlueText },
+                    ]}
+                  >
+                    Save Trip
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       {/* Date Picker Modal */}
       {Platform.OS === 'ios' && (
@@ -398,10 +488,14 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
                   <Text style={[styles.modalButtonText, { color: theme.text }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.confirmButton, { backgroundColor: theme.border }]}
+                  style={[styles.modalButton, styles.confirmButton, { 
+                    backgroundColor: themeMode === 'dark' ? palette.lightBlueHover : theme.border 
+                  }]}
                   onPress={confirmDate}
                 >
-                  <Text style={[styles.modalButtonText, { color: theme.text }]}>Confirm</Text>
+                  <Text style={[styles.modalButtonText, { 
+                    color: themeMode === 'dark' ? palette.lightBlueText : theme.text 
+                  }]}>Confirm</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -427,6 +521,10 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  contentContainer: {
+    flex: 1,
+    position: 'relative',
   },
   header: {
     flexDirection: 'row',
@@ -471,7 +569,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 120, // Space for save button
   },
   selectionSection: {
     margin: 20,
@@ -668,6 +766,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  saveButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopWidth: 1,
+    zIndex: 1000,
+    ...{
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
