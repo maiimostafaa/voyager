@@ -154,7 +154,8 @@ const Map: React.FC = () => {
           style={[
             styles.searchInputContainer,
             {
-              backgroundColor: themeMode === "light" ? "#ffffff" : "#1a1a1a",
+              backgroundColor: themeMode === "dark" ? theme.border : theme.accent,
+              borderColor: theme.border,
             },
             theme.shadows,
           ]}
@@ -162,18 +163,18 @@ const Map: React.FC = () => {
           <MaterialIcons
             name="search"
             size={24}
-            color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+            color={themeMode === "light" ? theme.text : theme.textSecondary}
             style={styles.searchIcon}
           />
           <TextInput
             style={[
               styles.searchInput,
               {
-                color: themeMode === "light" ? "#1f2937" : "#f3f4f6",
+                color: theme.text,
               },
             ]}
             placeholder="Search for a location..."
-            placeholderTextColor={themeMode === "light" ? "#9ca3af" : "#6b7280"}
+            placeholderTextColor={themeMode === "light" ? theme.text : theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus={false}
@@ -186,7 +187,7 @@ const Map: React.FC = () => {
               <MaterialIcons
                 name="close"
                 size={20}
-                color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+                color={themeMode === "light" ? theme.text : theme.textSecondary}
               />
             </TouchableOpacity>
           )}
@@ -318,12 +319,12 @@ const Map: React.FC = () => {
       <TouchableOpacity
         style={[
           styles.fabButton,
-          { backgroundColor: theme.accent },
+          { backgroundColor: themeMode === 'dark' ? theme.border : theme.accent },
           theme.shadows,
         ]}
         onPress={() => setShowNewPin(true)}
       >
-        <MaterialIcons name="add" size={28} color={theme.accentText} />
+        <MaterialIcons name="add" size={28} color={themeMode === 'dark' ? theme.text : theme.accentText} />
       </TouchableOpacity>
 
       {/* New Pin Modal */}
@@ -375,6 +376,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 22,
+    borderWidth: 1,
     elevation: 5,
   },
   searchIcon: {
