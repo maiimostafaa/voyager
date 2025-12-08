@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
+import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
 import { getLocationsTraveled } from '../../lib/supabase/locations';
 import { LocationTraveled } from '../../lib/types/database.types';
@@ -18,8 +19,8 @@ interface ProfileScreenProps {
   onEditPress?: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress }) => {
-  const { theme } = useTheme();
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut }) => {
+  const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
   const [locations, setLocations] = useState<LocationTraveled[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
@@ -27,6 +28,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress }) => {
   useEffect(() => {
     if (user?.id) {
       loadLocations();
+      loadStats();
     }
   }, [user?.id]);
 
@@ -57,70 +59,175 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress }) => {
           {profile.avatar_url ? (
             <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.accent }]}>
-              <MaterialIcons name="person" size={48} color={theme.text} />
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                {
+                  backgroundColor:
+                    themeMode === 'light' ? palette.darkBlue : theme.text,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="person"
+                size={48}
+                color={themeMode === 'light' ? palette.darkBlueText : theme.bg}
+              />
             </View>
           )}
         </View>
 
-        <Text style={[styles.username, { color: theme.text }]}>{profile.username}</Text>
+        <Text style={[styles.username, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+          {profile.username}
+        </Text>
         {profile.full_name && (
-          <Text style={[styles.fullName, { color: theme.text, opacity: 0.7 }]}>
+          <Text style={[styles.fullName, { color: theme.textSecondary }]}>
             {profile.full_name}
           </Text>
         )}
 
-        {onEditPress && (
-          <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: theme.accent }]}
-            onPress={onEditPress}
-          >
-            <MaterialIcons name="edit" size={18} color={theme.text} />
-            <Text style={[styles.editButtonText, { color: theme.text }]}>Edit Profile</Text>
-          </TouchableOpacity>
+        {(onEditPress || onSignOut) && (
+          <View style={styles.buttonContainer}>
+            {onEditPress && (
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  {
+                    backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text,
+                  },
+                ]}
+                onPress={onEditPress}
+              >
+                <MaterialIcons
+                  name="edit"
+                  size={18}
+                  color={themeMode === 'light' ? palette.darkBlueText : theme.bg}
+                />
+                <Text
+                  style={[
+                    styles.editButtonText,
+                    { color: themeMode === 'light' ? palette.darkBlueText : theme.bg },
+                  ]}
+                >
+                  Edit Profile
+                </Text>
+              </TouchableOpacity>
+            )}
+            {onSignOut && (
+              <TouchableOpacity
+                style={[
+                  styles.signOutButton,
+                  {
+                    backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text,
+                  },
+                ]}
+                onPress={onSignOut}
+              >
+                <MaterialIcons
+                  name="logout"
+                  size={18}
+                  color={themeMode === 'light' ? palette.darkBlueText : theme.bg}
+                />
+                <Text
+                  style={[
+                    styles.signOutButtonText,
+                    { color: themeMode === 'light' ? palette.darkBlueText : theme.bg },
+                  ]}
+                >
+                  Sign Out
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
 
-      {/* Stats Card */}
-      <View style={[styles.statsCard, { backgroundColor: theme.accent }]}>
+      {/* Stats Card - Instagram Style */}
+      <View
+        style={[
+          styles.statsCard,
+          {
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+          },
+        ]}
+      >
         <View style={styles.statItem}>
-          <MaterialIcons name="place" size={24} color={theme.text} />
-          <Text style={[styles.statNumber, { color: theme.text }]}>
-            {profile.locations_traveled_count || 0}
+          <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+            {loadingStats ? '-' : postsCount}
           </Text>
-          <Text style={[styles.statLabel, { color: theme.text, opacity: 0.7 }]}>
-            Places Visited
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+            Posts
+          </Text>
+        </View>
+        
+        <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+        
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+            {loadingStats ? '-' : friendsCount}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+            Friends
+          </Text>
+        </View>
+        
+        <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+        
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+            {loadingStats ? '-' : tripsCount}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+            Trips
           </Text>
         </View>
       </View>
 
       {/* Bio Section */}
       {profile.bio && (
-        <View style={[styles.infoCard, { backgroundColor: theme.accent }]}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            },
+          ]}
+        >
           <View style={styles.infoHeader}>
             <MaterialIcons name="info-outline" size={20} color={theme.text} />
-            <Text style={[styles.infoTitle, { color: theme.text }]}>About Me</Text>
+            <Text style={[styles.infoTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+              About Me
+            </Text>
           </View>
-          <Text style={[styles.infoValue, { color: theme.text, opacity: 0.85 }]}>
+          <Text style={[styles.infoValue, { color: theme.text }]}>
             {profile.bio}
           </Text>
         </View>
       )}
 
       {/* Account Info Section */}
-      <View style={[styles.infoCard, { backgroundColor: theme.accent }]}>
+      <View
+        style={[
+          styles.infoCard,
+          {
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+          },
+        ]}
+      >
         <View style={styles.infoHeader}>
           <MaterialIcons name="account-circle" size={20} color={theme.text} />
-          <Text style={[styles.infoTitle, { color: theme.text }]}>Account Info</Text>
+          <Text style={[styles.infoTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+            Account Info
+          </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={[styles.infoRowLabel, { color: theme.text, opacity: 0.7 }]}>User ID</Text>
+          <Text style={[styles.infoRowLabel, { color: theme.textSecondary }]}>User ID</Text>
           <Text style={[styles.infoRowValue, { color: theme.text }]} numberOfLines={1}>
             {user.id.slice(0, 8)}...{user.id.slice(-4)}
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={[styles.infoRowLabel, { color: theme.text, opacity: 0.7 }]}>Email</Text>
+          <Text style={[styles.infoRowLabel, { color: theme.textSecondary }]}>Email</Text>
           <Text style={[styles.infoRowValue, { color: theme.text }]} numberOfLines={1}>
             {user.email}
           </Text>
@@ -133,10 +240,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress }) => {
           <ActivityIndicator size="small" color={theme.text} />
         </View>
       ) : locations.length > 0 ? (
-        <View style={[styles.infoCard, { backgroundColor: theme.accent }]}>
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            },
+          ]}
+        >
           <View style={styles.infoHeader}>
             <MaterialIcons name="explore" size={20} color={theme.text} />
-            <Text style={[styles.infoTitle, { color: theme.text }]}>Recent Adventures</Text>
+            <Text style={[styles.infoTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
+              Recent Adventures
+            </Text>
           </View>
           {locations.slice(0, 10).map((location, index) => (
             <View
@@ -149,13 +265,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress }) => {
                 },
               ]}
             >
-              <MaterialIcons name="place" size={20} color={theme.text} style={{ opacity: 0.7 }} />
+              <MaterialIcons name="place" size={20} color={theme.textSecondary} />
               <View style={styles.locationInfo}>
                 <Text style={[styles.locationName, { color: theme.text }]}>
                   {location.location_name}
                 </Text>
                 {location.visited_at && (
-                  <Text style={[styles.locationDate, { color: theme.text, opacity: 0.6 }]}>
+                  <Text style={[styles.locationDate, { color: theme.textSecondary }]}>
                     {new Date(location.visited_at).toLocaleDateString()}
                   </Text>
                 )}
@@ -164,12 +280,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress }) => {
           ))}
         </View>
       ) : (
-        <View style={[styles.emptyCard, { backgroundColor: theme.accent }]}>
-          <MaterialIcons name="flight-takeoff" size={48} color={theme.text} style={{ opacity: 0.5 }} />
-          <Text style={[styles.emptyTitle, { color: theme.text }]}>
+        <View
+          style={[
+            styles.emptyCard,
+            {
+              backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            },
+          ]}
+        >
+          <MaterialIcons name="flight-takeoff" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
+          <Text style={[styles.emptyTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             No adventures yet
           </Text>
-          <Text style={[styles.emptySubtitle, { color: theme.text, opacity: 0.6 }]}>
+          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
             Start exploring and your travels will appear here!
           </Text>
         </View>
@@ -210,7 +333,6 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 4,
   },
   fullName: {
@@ -241,9 +363,8 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   statNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginTop: 8,
+    fontSize: 24,
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 14,
@@ -262,7 +383,6 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: 16,
-    fontWeight: '600',
   },
   infoValue: {
     fontSize: 15,
@@ -311,7 +431,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
     marginTop: 16,
   },
   emptySubtitle: {
