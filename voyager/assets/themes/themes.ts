@@ -12,6 +12,12 @@ const Themes = {
     accentText: palette.lightGreyText,
     statusBar: "dark-content" as const,
     border: palette.lightBlueAccent,
+    fonts: {
+      regular: 'Bodoni-Regular',
+      bold: 'Bodoni-Bold',
+      italic: 'Bodoni-Italic',
+      boldItalic: 'Bodoni-BoldItalic',
+    },
     shadows: {
       shadowColor: palette.lightBlueText,
       shadowOpacity: 0.3,
@@ -30,6 +36,12 @@ const Themes = {
     accentText: palette.darkGreyText,
     statusBar: "light-content" as const,
     border: palette.darkBlueAccent,
+    fonts: {
+      regular: 'Bodoni-Regular',
+      bold: 'Bodoni-Bold',
+      italic: 'Bodoni-Italic',
+      boldItalic: 'Bodoni-BoldItalic',
+    },
     shadows: {
       shadowColor: palette.black,
       shadowOpacity: 0.4,

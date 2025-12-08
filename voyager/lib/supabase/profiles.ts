@@ -43,17 +43,27 @@ export const uploadAvatar = async (
   imageUri: string
 ): Promise<string | null> => {
   try {
-    // Read the file
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
-    const fileExt = imageUri.split('.').pop();
-    const fileName = `${userId}.${fileExt}`;
+    // For React Native, we need to handle the file differently
+    const fileExt = imageUri.split('.').pop() || 'jpg';
+    const fileName = `${userId}-${Date.now()}.${fileExt}`;
     const filePath = `${userId}/${fileName}`;
 
-    // Upload to Supabase Storage
+    // Create form data for React Native
+    const formData = new FormData();
+    formData.append('file', {
+      uri: imageUri,
+      type: `image/${fileExt}`,
+      name: fileName,
+    } as any);
+
+    // Upload to Supabase Storage using arrayBuffer approach
+    const response = await fetch(imageUri);
+    const arrayBuffer = await response.arrayBuffer();
+    
     const { data, error } = await supabase.storage
       .from('avatars')
-      .upload(filePath, blob, {
+      .upload(filePath, arrayBuffer, {
+        contentType: `image/${fileExt}`,
         cacheControl: '3600',
         upsert: true,
       });

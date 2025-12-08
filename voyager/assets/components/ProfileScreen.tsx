@@ -13,10 +13,14 @@ import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
 import { getLocationsTraveled } from '../../lib/supabase/locations';
+import { getPosts } from '../../lib/supabase/posts';
+import { getFriends } from '../../lib/supabase/friends';
+import { supabase } from '../../lib/supabase';
 import { LocationTraveled } from '../../lib/types/database.types';
 
 interface ProfileScreenProps {
   onEditPress?: () => void;
+  onSignOut?: () => void;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut }) => {
@@ -24,6 +28,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
   const { user, profile } = useAuth();
   const [locations, setLocations] = useState<LocationTraveled[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
+  const [postsCount, setPostsCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
+  const [tripsCount, setTripsCount] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     if (user?.id) {
@@ -38,6 +46,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
     const data = await getLocationsTraveled(user.id);
     setLocations(data);
     setLoadingLocations(false);
+  };
+
+  const loadStats = async () => {
+    if (!user?.id) return;
+    setLoadingStats(true);
+    try {
+      const [postsData, friendsData, tripsData] = await Promise.all([
+        getPosts(user.id),
+        getFriends(user.id),
+        supabase.from('trip_plans').select('id').eq('user_id', user.id),
+      ]);
+      setPostsCount(postsData.length);
+      setFriendsCount(friendsData.length);
+      setTripsCount(tripsData.data?.length || 0);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
   };
 
   if (!profile || !user) {
@@ -339,6 +366,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -351,24 +383,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  signOutButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   statsCard: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-around',
+    alignItems: 'center',
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
   },
   statItem: {
     alignItems: 'center',
-    minWidth: 100,
+    flex: 1,
   },
   statNumber: {
     fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    opacity: 0.3,
   },
   infoCard: {
     padding: 16,

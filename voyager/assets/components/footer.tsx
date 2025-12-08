@@ -1,9 +1,15 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { MaterialIcons, FontAwesome5, Feather } from '@expo/vector-icons';
-import { useTheme } from '../themes/themeMode';
+import React, { useEffect, useMemo, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
+import { MaterialIcons, FontAwesome5, Feather } from "@expo/vector-icons";
+import { useTheme } from "../themes/themeMode";
 
-type TabKey = 'Map' | 'MyPins' | 'TripPlan' | 'Settings';
+type TabKey = "Map" | "MyPins" | "TripPlan" | "Settings";
 
 interface FooterProps {
   activeTab: TabKey;
@@ -21,28 +27,34 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
 
   const tabs: TabConfig[] = useMemo(
     () => [
-    {
-      key: 'Map',
-      label: 'Map',
-      icon: color => <MaterialIcons name="map" size={24} color={color} />,
-    },
-    {
-      key: 'MyPins',
-      label: 'My Pins',
-      icon: color => <FontAwesome5 name="sticky-note" size={24} color={color} />,
-    },
-    {
-      key: 'TripPlan',
-      label: 'Trip Plan',
-      icon: color => <MaterialIcons name="luggage" size={26} color={color} />,
-    },
-    {
-      key: 'Settings',
-      label: 'Settings',
-      icon: color => <Feather name="settings" size={24} color={color} />,
-    },
+      {
+        key: "Map",
+        label: "Map",
+        icon: (color) => <MaterialIcons name="map" size={24} color={color} />,
+      },
+      {
+        key: "MyPins",
+        label: "Pins",
+        icon: (color) => (
+          <MaterialIcons name="push-pin" size={24} color={color} />
+        ),
+      },
+      {
+        key: "TripPlan",
+        label: "Trips",
+        icon: (color) => (
+          <MaterialIcons name="luggage" size={26} color={color} />
+        ),
+      },
+      {
+        key: "Settings",
+        label: "Profile",
+        icon: (color) => (
+          <MaterialIcons name="account-circle" size={26} color={color} />
+        ),
+      },
     ],
-    [],
+    []
   );
 
   const animationRefs = useRef<Record<TabKey, Animated.Value>>(
@@ -51,12 +63,12 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
         ...acc,
         [tab.key]: new Animated.Value(tab.key === activeTab ? 1 : 0),
       }),
-      {} as Record<TabKey, Animated.Value>,
-    ),
+      {} as Record<TabKey, Animated.Value>
+    )
   );
 
   useEffect(() => {
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       Animated.timing(animationRefs.current[tab.key], {
         toValue: tab.key === activeTab ? 1 : 0,
         duration: 220,
@@ -75,7 +87,7 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
         },
       ]}
     >
-      {tabs.map(tab => {
+      {tabs.map((tab) => {
         const isActive = tab.key === activeTab;
         const color = isActive ? theme.text : `${theme.text}CC`;
         const labelProgress = animationRefs.current[tab.key];
@@ -91,7 +103,7 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
             style={[
               styles.button,
               {
-                backgroundColor: 'transparent',
+                backgroundColor: "transparent",
               },
             ]}
             onPress={() => onTabPress(tab.key)}
@@ -101,8 +113,8 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
                 styles.pill,
                 {
                   backgroundColor: theme.bg,
-                  borderColor: isActive ? theme.border : 'transparent',
-                  shadowColor: themeMode === 'light' ? '#000' : '#000',
+                  borderColor: isActive ? theme.border : "transparent",
+                  shadowColor: themeMode === "light" ? "#000" : "#000",
                   shadowOpacity: isActive ? 0.08 : 0,
                   shadowRadius: isActive ? 6 : 0,
                   shadowOffset: { width: 0, height: 2 },
@@ -129,7 +141,7 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
                     styles.label,
                     {
                       color,
-                      fontWeight: isActive ? '700' : '500',
+                      fontWeight: isActive ? "700" : "500",
                     },
                   ]}
                   numberOfLines={1}
@@ -147,47 +159,45 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 8,
     paddingVertical: 10,
     borderTopWidth: 1,
   },
   button: {
     flex: 1,
-    marginHorizontal: 1,
+    marginHorizontal: 0,
     paddingVertical: 10,
     borderRadius: 999,
-    alignItems: 'center',
+    alignItems: "center",
   },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   iconLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   labelWrapper: {
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     fontSize: 13,
-    alignItems: 'center',
+    alignItems: "center",
   },
 });
 
 export default Footer;
-
-
