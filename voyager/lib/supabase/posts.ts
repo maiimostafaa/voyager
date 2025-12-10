@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { Post, PostTag, PostImage } from '../types/database.types';
+import { Post, PostTag, PostImage, PostLike, PostSave } from '../types/database.types';
 
 export const getPosts = async (userId?: string): Promise<Post[]> => {
   let query = supabase.from('posts').select('*');
@@ -269,4 +269,176 @@ export const uploadPostImage = async (
     console.error('Error in uploadPostImage:', error);
     return null;
   }
+};
+
+// ============================================
+// POST LIKES
+// ============================================
+
+export const likePost = async (postId: string, userId: string): Promise<PostLike | null> => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .insert({
+      post_id: postId,
+      user_id: userId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // If error is due to duplicate, that's okay - user already liked it
+    if (error.code !== '23505') {
+      console.error('Error liking post:', error);
+    }
+    return null;
+  }
+
+  return data;
+};
+
+export const unlikePost = async (postId: string, userId: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('post_likes')
+    .delete()
+    .eq('post_id', postId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error unliking post:', error);
+    return false;
+  }
+
+  return true;
+};
+
+export const getPostLikes = async (postId: string): Promise<PostLike[]> => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('*')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching post likes:', error);
+    return [];
+  }
+
+  return data || [];
+};
+
+export const getUserLikedPosts = async (userId: string): Promise<string[]> => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('post_id')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching user liked posts:', error);
+    return [];
+  }
+
+  return (data || []).map(like => like.post_id);
+};
+
+export const isPostLiked = async (postId: string, userId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    return false;
+  }
+
+  return !!data;
+};
+
+// ============================================
+// POST SAVES
+// ============================================
+
+export const savePost = async (postId: string, userId: string): Promise<PostSave | null> => {
+  const { data, error } = await supabase
+    .from('post_saves')
+    .insert({
+      post_id: postId,
+      user_id: userId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // If error is due to duplicate, that's okay - user already saved it
+    if (error.code !== '23505') {
+      console.error('Error saving post:', error);
+    }
+    return null;
+  }
+
+  return data;
+};
+
+export const unsavePost = async (postId: string, userId: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('post_saves')
+    .delete()
+    .eq('post_id', postId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error unsaving post:', error);
+    return false;
+  }
+
+  return true;
+};
+
+export const getSavedPosts = async (userId: string): Promise<Post[]> => {
+  const { data, error } = await supabase
+    .from('post_saves')
+    .select(`
+      post_id,
+      posts (*)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching saved posts:', error);
+    return [];
+  }
+
+  // Extract posts from the joined data
+  return (data || []).map((save: any) => save.posts).filter(Boolean);
+};
+
+export const getUserSavedPostIds = async (userId: string): Promise<string[]> => {
+  const { data, error } = await supabase
+    .from('post_saves')
+    .select('post_id')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching user saved post IDs:', error);
+    return [];
+  }
+
+  return (data || []).map(save => save.post_id);
+};
+
+export const isPostSaved = async (postId: string, userId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('post_saves')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    return false;
+  }
+
+  return !!data;
 };

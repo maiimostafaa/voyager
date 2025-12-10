@@ -61,6 +61,24 @@ CREATE TABLE IF NOT EXISTS post_images (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- Post likes table
+CREATE TABLE IF NOT EXISTS post_likes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+  UNIQUE(post_id, user_id)
+);
+
+-- Post saves table (bookmarks)
+CREATE TABLE IF NOT EXISTS post_saves (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+  UNIQUE(post_id, user_id)
+);
+
 -- Friendships table
 CREATE TABLE IF NOT EXISTS friendships (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -158,6 +176,8 @@ ALTER TABLE locations_traveled ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE post_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE post_saves ENABLE ROW LEVEL SECURITY;
 ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_plan_days ENABLE ROW LEVEL SECURITY;
@@ -273,6 +293,52 @@ CREATE POLICY "Users can delete images from their own posts"
       AND posts.user_id = auth.uid()
     )
   );
+
+-- Post likes policies
+CREATE POLICY "Users can read likes for visible posts"
+  ON post_likes FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM posts
+      WHERE posts.id = post_likes.post_id
+      AND (posts.user_id = auth.uid() OR are_friends(auth.uid(), posts.user_id))
+    )
+  );
+
+CREATE POLICY "Users can like posts they can see"
+  ON post_likes FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id AND
+    EXISTS (
+      SELECT 1 FROM posts
+      WHERE posts.id = post_likes.post_id
+      AND (posts.user_id = auth.uid() OR are_friends(auth.uid(), posts.user_id))
+    )
+  );
+
+CREATE POLICY "Users can unlike their own likes"
+  ON post_likes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Post saves policies
+CREATE POLICY "Users can read their own saves"
+  ON post_saves FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can save posts they can see"
+  ON post_saves FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id AND
+    EXISTS (
+      SELECT 1 FROM posts
+      WHERE posts.id = post_saves.post_id
+      AND (posts.user_id = auth.uid() OR are_friends(auth.uid(), posts.user_id))
+    )
+  );
+
+CREATE POLICY "Users can unsave their own saves"
+  ON post_saves FOR DELETE
+  USING (auth.uid() = user_id);
 
 -- Friendships policies
 CREATE POLICY "Users can read their own friendships"

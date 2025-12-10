@@ -143,6 +143,46 @@ export interface Database {
           created_at?: string;
         };
       };
+      post_likes: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+      };
+      post_saves: {
+        Row: {
+          id: string;
+          post_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          post_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+      };
       friendships: {
         Row: {
           id: string;
@@ -228,6 +268,8 @@ export type LocationTraveled = Database['public']['Tables']['locations_traveled'
 export type Post = Database['public']['Tables']['posts']['Row'];
 export type PostTag = Database['public']['Tables']['post_tags']['Row'];
 export type PostImage = Database['public']['Tables']['post_images']['Row'];
+export type PostLike = Database['public']['Tables']['post_likes']['Row'];
+export type PostSave = Database['public']['Tables']['post_saves']['Row'];
 export type Friendship = Database['public']['Tables']['friendships']['Row'];
 export type TripPlan = Database['public']['Tables']['trip_plans']['Row'];
 export type TripPlanDay = Database['public']['Tables']['trip_plan_days']['Row'];
