@@ -16,7 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
-import { getTripPlanWithDays, updateTripPlan, updateTripDay } from '../../lib/supabase/trips';
+import { getTripPlanWithDays, updateTripPlan, updateTripDay, deleteTripPlan } from '../../lib/supabase/trips';
 import { TripPlan, TripPlanDay } from '../../lib/types/database.types';
 import { getPostWithDetails, PostWithTags } from '../../lib/supabase/posts';
 import { Post } from '../../lib/types/database.types';
@@ -54,18 +54,20 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
   const [saving, setSaving] = useState(false);
   const [showSelectActivity, setShowSelectActivity] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch trip plan and days
   useEffect(() => {
     fetchTripData();
   }, [tripPlanId]);
 
-  // Fetch weather when trip plan is loaded
+  // Fetch weather when trip plan is loaded or updated
   useEffect(() => {
-    if (tripPlan) {
+    if (tripPlan && tripPlan.start_date && tripPlan.end_date) {
       fetchWeather();
     }
-  }, [tripPlan]);
+  }, [tripPlan?.id, tripPlan?.start_date, tripPlan?.end_date, tripPlan?.title]);
 
   const fetchTripData = async () => {
     setLoading(true);
@@ -159,9 +161,35 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
   };
 
   const getWeatherForDay = (dateString: string): ForecastData | null => {
-    // Date string is already in YYYY-MM-DD format from database
-    // Use it directly to match weather data keys
-    return weatherData.get(dateString) || null;
+    if (!dateString) return null;
+    
+    // Ensure date is in YYYY-MM-DD format
+    // Database dates should already be in this format, but normalize to be safe
+    let normalizedDate: string;
+    
+    // If dateString is already in YYYY-MM-DD format, use it directly
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      normalizedDate = dateString;
+    } else {
+      // Parse and reformat the date
+      const date = parseDateString(dateString);
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return null;
+      }
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      normalizedDate = `${year}-${month}-${day}`;
+    }
+    
+    // Try exact match first
+    let weather = weatherData.get(normalizedDate);
+    if (weather) {
+      return weather;
+    }
+    
+    return null;
   };
 
   const formatDateForInput = (date: Date): string => {
@@ -180,6 +208,31 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
 
   const handleEdit = () => {
     setIsEditMode(true);
+  };
+
+  const handleDelete = async () => {
+    if (!user?.id || !tripPlan) return;
+
+    setDeleting(true);
+    try {
+      const success = await deleteTripPlan(tripPlanId, user.id);
+      if (success) {
+        // Notify parent component to refresh trip list
+        if (onTripUpdated) {
+          onTripUpdated();
+        }
+        // Close the modal
+        onClose();
+      } else {
+        console.error('Failed to delete trip plan');
+        setShowDeleteConfirm(false);
+      }
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -261,6 +314,10 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
         setIsEditMode(false);
         // Refresh data to update days if dates changed
         await fetchTripData();
+        // Refetch weather with new dates
+        if (updated.start_date && updated.end_date) {
+          await fetchWeather();
+        }
         // Notify parent component to refresh trip list
         if (onTripUpdated) {
           onTripUpdated();
@@ -465,7 +522,9 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
                     <Text style={[styles.dayDate, { color: theme.text }]}>
                       {formatDayDate(day.date)}
                     </Text>
-                    {tripPlan.title && (() => {
+                    {(() => {
+                      if (!tripPlan.title) return null;
+                      
                       const weather = getWeatherForDay(day.date);
                       if (loadingWeather) {
                         return (
@@ -570,6 +629,21 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
                 </ScrollView>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* Delete Trip Button - Only show when not in edit mode and there are days */}
+        {!isEditMode && days.length > 0 && (
+          <View style={styles.deleteTripContainer}>
+            <TouchableOpacity
+              onPress={() => setShowDeleteConfirm(true)}
+              style={[styles.deleteTripButton, { backgroundColor: theme.hover }]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.deleteTripButtonText, { color: theme.text }]}>
+                Delete Trip
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -705,6 +779,75 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
           />
         </Modal>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View
+            style={[
+              styles.deleteModalContent,
+              {
+                backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="warning"
+              size={48}
+              color={themeMode === 'dark' ? palette.lightBlueHover : theme.border}
+              style={styles.deleteModalIcon}
+            />
+            <Text style={[styles.deleteModalTitle, { color: theme.text }]}>
+              Delete Trip?
+            </Text>
+            <Text style={[styles.deleteModalText, { color: theme.text }]}>
+              Are you sure you want to delete "{tripPlan?.title}"? This action cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.cancelDeleteButton, { backgroundColor: theme.hover }]}
+                onPress={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                <Text style={[styles.deleteModalButtonText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.deleteModalButton,
+                  styles.confirmDeleteButton,
+                  {
+                    backgroundColor: themeMode === 'dark' ? palette.lightBlueHover : theme.border,
+                  },
+                ]}
+                onPress={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={themeMode === 'dark' ? palette.lightBlueText : theme.text}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.deleteModalButtonText,
+                      { color: themeMode === 'dark' ? palette.lightBlueText : theme.text },
+                    ]}
+                  >
+                    Delete
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -926,6 +1069,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  deleteTripContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  deleteTripButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  deleteTripButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1001,6 +1162,65 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalContent: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    ...{
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+  },
+  deleteModalIcon: {
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  deleteModalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelDeleteButton: {
+    opacity: 0.8,
+  },
+  confirmDeleteButton: {
+    opacity: 1,
+  },
+  deleteModalButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },

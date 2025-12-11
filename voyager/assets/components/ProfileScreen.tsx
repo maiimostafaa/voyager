@@ -108,7 +108,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
           {profile.username}
         </Text>
         {profile.full_name && (
-          <Text style={[styles.fullName, { color: theme.textSecondary }]}>
+          <Text style={[styles.fullName, { color: theme.text }]}>
             {profile.full_name}
           </Text>
         )}
@@ -182,7 +182,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
           <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             {loadingStats ? '-' : postsCount}
           </Text>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+          <Text style={[styles.statLabel, { color: theme.text }]}>
             Posts
           </Text>
         </View>
@@ -193,7 +193,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
           <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             {loadingStats ? '-' : friendsCount}
           </Text>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+          <Text style={[styles.statLabel, { color: theme.text }]}>
             Friends
           </Text>
         </View>
@@ -204,7 +204,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
           <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             {loadingStats ? '-' : tripsCount}
           </Text>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+          <Text style={[styles.statLabel, { color: theme.text }]}>
             Trips
           </Text>
         </View>
@@ -248,13 +248,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={[styles.infoRowLabel, { color: theme.textSecondary }]}>User ID</Text>
+          <Text style={[styles.infoRowLabel, { color: theme.text }]}>User ID</Text>
           <Text style={[styles.infoRowValue, { color: theme.text }]} numberOfLines={1}>
             {user.id.slice(0, 8)}...{user.id.slice(-4)}
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={[styles.infoRowLabel, { color: theme.textSecondary }]}>Email</Text>
+          <Text style={[styles.infoRowLabel, { color: theme.text }]}>Email</Text>
           <Text style={[styles.infoRowValue, { color: theme.text }]} numberOfLines={1}>
             {user.email}
           </Text>
@@ -292,13 +292,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
                 },
               ]}
             >
-              <MaterialIcons name="place" size={20} color={theme.textSecondary} />
+              <MaterialIcons name="place" size={20} color={theme.text} />
               <View style={styles.locationInfo}>
                 <Text style={[styles.locationName, { color: theme.text }]}>
                   {location.location_name}
                 </Text>
                 {location.visited_at && (
-                  <Text style={[styles.locationDate, { color: theme.textSecondary }]}>
+                  <Text style={[styles.locationDate, { color: theme.text }]}>
                     {new Date(location.visited_at).toLocaleDateString()}
                   </Text>
                 )}
@@ -315,11 +315,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
             },
           ]}
         >
-          <MaterialIcons name="flight-takeoff" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
+          <MaterialIcons name="flight-takeoff" size={48} color={theme.text} style={{ opacity: 0.5 }} />
           <Text style={[styles.emptyTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             No adventures yet
           </Text>
-          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+          <Text style={[styles.emptySubtitle, { color: theme.text }]}>
             Start exploring and your travels will appear here!
           </Text>
         </View>
