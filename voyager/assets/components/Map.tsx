@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { getPostsWithTags, PostWithTags } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
+import NewPin from "./NewPin";
 
 const { width, height } = Dimensions.get("window");
 
@@ -155,7 +156,8 @@ const Map: React.FC = () => {
           style={[
             styles.searchInputContainer,
             {
-              backgroundColor: themeMode === "dark" ? theme.border : theme.accent,
+              backgroundColor:
+                themeMode === "dark" ? theme.border : theme.accent,
               borderColor: theme.border,
             },
             theme.shadows,
@@ -175,7 +177,9 @@ const Map: React.FC = () => {
               },
             ]}
             placeholder="Search for a location..."
-            placeholderTextColor={themeMode === "light" ? theme.text : theme.textSecondary}
+            placeholderTextColor={
+              themeMode === "light" ? theme.text : theme.textSecondary
+            }
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoFocus={false}
@@ -320,47 +324,29 @@ const Map: React.FC = () => {
       <TouchableOpacity
         style={[
           styles.fabButton,
-          { 
-            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
-            borderColor: themeMode === 'dark' ? theme.text : theme.border,
-            borderStyle: 'dashed',
+          {
+            backgroundColor: themeMode === "dark" ? theme.border : theme.accent,
+            borderColor: themeMode === "dark" ? theme.text : theme.border,
+            borderStyle: "dashed",
           },
           theme.shadows,
         ]}
         onPress={() => setShowNewPin(true)}
       >
-        <MaterialIcons 
-          name="add" 
-          size={28} 
-          color={themeMode === 'dark' ? theme.text : palette.lightBlueText} 
+        <MaterialIcons
+          name="add"
+          size={28}
+          color={themeMode === "dark" ? theme.text : palette.lightBlueText}
         />
       </TouchableOpacity>
 
       {/* New Pin Modal */}
-      <Modal
+      <NewPin
         visible={showNewPin}
-        animationType="slide"
-        onRequestClose={() => setShowNewPin(false)}
-      >
-        <View style={[styles.newPinContainer, { backgroundColor: theme.bg }]}>
-          <View style={styles.newPinHeader}>
-            <Text style={[styles.newPinTitle, { color: theme.text }]}>
-              Add New Location
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowNewPin(false)}
-              style={[styles.closeButton, { backgroundColor: theme.hover }]}
-            >
-              <MaterialIcons name="close" size={24} color={theme.text} />
-            </TouchableOpacity>
-          </View>
-          <Text
-            style={[styles.placeholderText, { color: theme.textSecondary }]}
-          >
-            New Pin page coming soon...
-          </Text>
-        </View>
-      </Modal>
+        onClose={() => setShowNewPin(false)}
+        onPinCreated={fetchPosts}
+        initialRegion={region}
+      />
     </View>
   );
 };
@@ -505,26 +491,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     elevation: 8,
     zIndex: 100,
-  },
-  newPinContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  newPinHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    paddingTop: 20,
-  },
-  newPinTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  placeholderText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 40,
   },
 });
 
