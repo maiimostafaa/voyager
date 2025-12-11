@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,97 +7,103 @@ import {
   TouchableOpacity,
   ScrollView,
   FlatList,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../themes/themeMode";
+import { useAuth } from "../contexts/AuthContext";
 import { VALID_TAGS } from "../../lib/types/database.types";
+import {
+  getPostsWithTags,
+  deletePost,
+  updatePost,
+  updatePostTags,
+  getPostImages,
+  uploadPostImage,
+  PostWithTags,
+} from "../../lib/supabase/posts";
+import { DUMMY_PINS } from "../../lib/data/dummyPins";
 
-// Dummy data for demonstration
-const DUMMY_PINS = [
-  {
-    id: "1",
-    location_name: "Golden Gate Bridge",
-    notes: "Amazing views at sunset! Perfect spot for photos.",
-    latitude: 37.8199,
-    longitude: -122.4783,
-    tags: ["Photo Spot", "Nature"],
-    created_at: "2024-01-15",
-    recommended_by: [
-      { username: "sarah_travels", avatar_url: null },
-      { username: "john_doe", avatar_url: null },
-      { username: "emma_w", avatar_url: null },
-    ],
-  },
-  {
-    id: "2",
-    location_name: "Tartine Bakery",
-    notes: "Best morning buns in SF. Get there early, lines are long!",
-    latitude: 37.7614,
-    longitude: -122.4241,
-    tags: ["Food Spot"],
-    created_at: "2024-01-10",
-    recommended_by: [
-      { username: "foodie_mike", avatar_url: null },
-      { username: "lisa_eats", avatar_url: null },
-    ],
-  },
-  {
-    id: "3",
-    location_name: "The Fillmore",
-    notes:
-      "Iconic music venue with incredible acoustics. Saw an amazing show here!",
-    latitude: 37.7835,
-    longitude: -122.4334,
-    tags: ["Live Music", "Bar"],
-    created_at: "2024-01-05",
-    recommended_by: [{ username: "music_lover", avatar_url: null }],
-  },
-  {
-    id: "4",
-    location_name: "Muir Woods",
-    notes: "Peaceful hike among the redwoods. Take the Cathedral Grove trail.",
-    latitude: 37.8913,
-    longitude: -122.5811,
-    tags: ["Nature"],
-    created_at: "2024-01-20",
-    recommended_by: [
-      { username: "hiker_alex", avatar_url: null },
-      { username: "nature_photos", avatar_url: null },
-      { username: "outdoor_life", avatar_url: null },
-      { username: "trail_blazer", avatar_url: null },
-    ],
-  },
-  {
-    id: "5",
-    location_name: "The Independent",
-    notes: "Great indie venue with a laid-back vibe. Great sound system!",
-    latitude: 37.7749,
-    longitude: -122.4194,
-    tags: ["Live Music", "Club"],
-    created_at: "2024-01-12",
-    recommended_by: [
-      { username: "concert_king", avatar_url: null },
-      { username: "indie_fan", avatar_url: null },
-    ],
-  },
-  {
-    id: "6",
-    location_name: "SFMOMA",
-    notes:
-      "World-class modern art museum. Don't miss the rooftop sculpture garden.",
-    latitude: 37.7857,
-    longitude: -122.4011,
-    tags: ["Museum"],
-    created_at: "2024-01-08",
-    recommended_by: [{ username: "art_enthusiast", avatar_url: null }],
-  },
-];
+// max photos per pin
+const MAX_PHOTOS = 5;
+
+// type for pins displayed (works with both real and dummy)
+type DisplayPin = {
+  id: string;
+  location_name: string;
+  notes: string | null;
+  latitude: number;
+  longitude: number;
+  tags: { tag_name: string }[];
+  created_at: string;
+  user_id: string;
+  recommended_by?: { username: string }[];
+};
 
 const MyPins: React.FC = () => {
   const { theme, themeMode } = useTheme();
+  const { user } = useAuth();
+
+  // toggle between feed and my pins - default to feed
+  const [activeTab, setActiveTab] = useState<"feed" | "my-pins">("feed");
+
+  // data states
+  const [myPins, setMyPins] = useState<PostWithTags[]>([]);
+  const [allPins, setAllPins] = useState<PostWithTags[]>([]); // all real pins for feed
+  const [loading, setLoading] = useState(true);
+
+  // filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [pins] = useState(DUMMY_PINS);
+
+  // edit modal state
+  const [editingPin, setEditingPin] = useState<DisplayPin | null>(null);
+  const [editLocationName, setEditLocationName] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editExistingPhotos, setEditExistingPhotos] = useState<string[]>([]); // existing photo URLs
+  const [editNewPhotos, setEditNewPhotos] = useState<string[]>([]); // new photos to upload (local URIs)
+  const [saving, setSaving] = useState(false);
+
+  // fetch user's pins
+  const fetchMyPins = async () => {
+    if (!user) return;
+    try {
+      const posts = await getPostsWithTags(user.id);
+      setMyPins(posts);
+    } catch (error) {
+      console.error("Error fetching my pins:", error);
+    }
+  };
+
+  // fetch all pins for the feed
+  const fetchAllPins = async () => {
+    try {
+      const posts = await getPostsWithTags();
+      setAllPins(posts);
+    } catch (error) {
+      console.error("Error fetching all pins:", error);
+    }
+  };
+
+  // fetch pins on mount and when tab changes
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      if (activeTab === "my-pins") {
+        await fetchMyPins();
+      } else {
+        await fetchAllPins();
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, [activeTab, user]);
 
   const toggleTag = (tagName: string) => {
     setSelectedTags((prev) =>
@@ -107,51 +113,257 @@ const MyPins: React.FC = () => {
     );
   };
 
-  const filteredPins = pins.filter((pin) => {
-    // Filter by search query
+  // get current pins based on active tab
+  // feed shows all real pins + dummy pins, my pins shows only user's pins
+  const currentPins: DisplayPin[] =
+    activeTab === "my-pins"
+      ? myPins
+      : [...allPins, ...(DUMMY_PINS as DisplayPin[])];
+
+  // apply filters
+  const filteredPins = currentPins.filter((pin) => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       if (!pin.location_name.toLowerCase().includes(query)) {
         return false;
       }
     }
-
-    // Filter by tags
     if (selectedTags.length > 0) {
-      if (!pin.tags.some((tag) => selectedTags.includes(tag))) {
+      if (!pin.tags.some((tag) => selectedTags.includes(tag.tag_name))) {
         return false;
       }
     }
-
     return true;
   });
 
-  const renderPinCard = ({ item }: { item: (typeof DUMMY_PINS)[0] }) => (
-    <TouchableOpacity
-      style={[
-        styles.pinCard,
+  // check if pin belongs to current user
+  const isOwnPin = (pin: DisplayPin) => {
+    return user && pin.user_id === user.id;
+  };
+
+  // handle delete
+  const handleDelete = (pin: DisplayPin) => {
+    Alert.alert(
+      "Delete Pin",
+      `Are you sure you want to delete "${pin.location_name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
         {
-          backgroundColor: themeMode === "light" ? theme.accent : "#ffffff",
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!user) return;
+            const success = await deletePost(pin.id, user.id);
+            if (success) {
+              setMyPins((prev) => prev.filter((p) => p.id !== pin.id));
+              Alert.alert("Deleted", "Pin has been removed.");
+            } else {
+              Alert.alert("Error", "Could not delete pin. Please try again.");
+            }
+          },
         },
-      ]}
-      activeOpacity={0.7}
-    >
-      <View style={styles.pinHeader}>
-        <View style={styles.pinTitleContainer}>
-          <MaterialIcons
-            name="place"
-            size={24}
-            color={themeMode === "light" ? theme.text : "#1f2937"}
-          />
-          <Text
-            style={[
-              styles.pinTitle,
-              { color: themeMode === "light" ? theme.text : "#1f2937" },
-            ]}
-          >
-            {item.location_name}
-          </Text>
+      ]
+    );
+  };
+
+  // open edit modal
+  const handleEdit = async (pin: DisplayPin) => {
+    setEditingPin(pin);
+    setEditLocationName(pin.location_name);
+    setEditNotes(pin.notes || "");
+    setEditTags(pin.tags.map((t) => t.tag_name));
+    setEditNewPhotos([]);
+
+    // load existing photos
+    try {
+      const images = await getPostImages(pin.id);
+      setEditExistingPhotos(images.map((img) => img.image_url));
+    } catch (error) {
+      console.error("Error loading photos:", error);
+      setEditExistingPhotos([]);
+    }
+  };
+
+  // pick photos for edit
+  const pickEditPhotos = async () => {
+    const totalPhotos = editExistingPhotos.length + editNewPhotos.length;
+    if (totalPhotos >= MAX_PHOTOS) {
+      Alert.alert(
+        "Maximum Photos",
+        `You can only have up to ${MAX_PHOTOS} photos.`
+      );
+      return;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "We need access to your photos.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: MAX_PHOTOS - totalPhotos,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newPhotos = result.assets.map((asset) => asset.uri);
+      setEditNewPhotos((prev) =>
+        [...prev, ...newPhotos].slice(0, MAX_PHOTOS - editExistingPhotos.length)
+      );
+    }
+  };
+
+  // take photo for edit
+  const takeEditPhoto = async () => {
+    const totalPhotos = editExistingPhotos.length + editNewPhotos.length;
+    if (totalPhotos >= MAX_PHOTOS) {
+      Alert.alert(
+        "Maximum Photos",
+        `You can only have up to ${MAX_PHOTOS} photos.`
+      );
+      return;
+    }
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Denied", "We need access to your camera.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setEditNewPhotos((prev) => [...prev, result.assets[0].uri]);
+    }
+  };
+
+  // remove existing photo
+  const removeExistingPhoto = (index: number) => {
+    setEditExistingPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // remove new photo
+  const removeNewPhoto = (index: number) => {
+    setEditNewPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // save edits
+  const handleSaveEdit = async () => {
+    if (!editingPin || !user) return;
+
+    if (!editLocationName.trim()) {
+      Alert.alert("Error", "Location name is required.");
+      return;
+    }
+    if (editTags.length === 0) {
+      Alert.alert("Error", "Please select at least one tag.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // update post details
+      const updatedPost = await updatePost(editingPin.id, user.id, {
+        location_name: editLocationName.trim(),
+        notes: editNotes.trim() || null,
+      });
+
+      // update tags
+      await updatePostTags(editingPin.id, user.id, editTags);
+
+      // upload new photos
+      if (editNewPhotos.length > 0) {
+        for (const photoUri of editNewPhotos) {
+          try {
+            await uploadPostImage(user.id, editingPin.id, photoUri);
+          } catch (err) {
+            console.error("Photo upload error:", err);
+          }
+        }
+      }
+
+      if (updatedPost) {
+        // refresh the list
+        await fetchMyPins();
+        setEditingPin(null);
+        Alert.alert("Success", "Pin updated!");
+      } else {
+        Alert.alert("Error", "Could not update pin.");
+      }
+    } catch (error) {
+      console.error("Error updating pin:", error);
+      Alert.alert("Error", "Something went wrong.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // toggle edit tag
+  const toggleEditTag = (tagName: string) => {
+    setEditTags((prev) =>
+      prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName]
+    );
+  };
+
+  const renderPinCard = ({ item }: { item: DisplayPin }) => {
+    const canEdit = isOwnPin(item);
+
+    return (
+      <View
+        style={[
+          styles.pinCard,
+          {
+            backgroundColor: themeMode === "light" ? theme.accent : "#ffffff",
+          },
+        ]}
+      >
+        <View style={styles.pinHeader}>
+          <View style={styles.pinTitleContainer}>
+            <MaterialIcons
+              name="place"
+              size={24}
+              color={themeMode === "light" ? theme.text : "#1f2937"}
+            />
+            <Text
+              style={[
+                styles.pinTitle,
+                { color: themeMode === "light" ? theme.text : "#1f2937" },
+              ]}
+            >
+              {item.location_name}
+            </Text>
+          </View>
+
+          {/* edit/delete buttons for own pins */}
+          {canEdit && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => handleEdit(item)}
+              >
+                <MaterialIcons
+                  name="edit"
+                  size={20}
+                  color={
+                    themeMode === "light" ? theme.textSecondary : "#6b7280"
+                  }
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => handleDelete(item)}
+              >
+                <MaterialIcons name="delete" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
+
         <Text
           style={[
             styles.pinDate,
@@ -160,90 +372,136 @@ const MyPins: React.FC = () => {
         >
           {new Date(item.created_at).toLocaleDateString()}
         </Text>
-      </View>
 
-      {item.notes && (
-        <Text
-          style={[
-            styles.pinNotes,
-            { color: themeMode === "light" ? theme.text : "#374151" },
-          ]}
-          numberOfLines={2}
-        >
-          {item.notes}
-        </Text>
-      )}
-
-      {item.tags.length > 0 && (
-        <View style={styles.pinTags}>
-          {item.tags.map((tag) => (
-            <View
-              key={tag}
-              style={[styles.pinTagChip, { backgroundColor: theme.hover }]}
-            >
-              <Text style={[styles.pinTagText, { color: theme.text }]}>
-                {tag}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {item.recommended_by && item.recommended_by.length > 0 && (
-        <View style={styles.recommendedSection}>
+        {item.notes && (
           <Text
             style={[
-              styles.recommendedLabel,
-              {
-                color: themeMode === "light" ? theme.textSecondary : "#6b7280",
-              },
+              styles.pinNotes,
+              { color: themeMode === "light" ? theme.text : "#374151" },
             ]}
+            numberOfLines={2}
           >
-            Recommended by:
+            {item.notes}
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recommendedList}
-          >
-            {item.recommended_by.map((friend, index) => (
-              <View key={index} style={styles.friendItem}>
-                <View
-                  style={[
-                    styles.friendAvatar,
-                    {
-                      backgroundColor:
-                        themeMode === "light" ? theme.hover : "#e5e7eb",
-                      borderColor:
-                        themeMode === "light" ? theme.border : "#d1d5db",
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="person"
-                    size={16}
-                    color={themeMode === "light" ? theme.text : "#1f2937"}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.friendUsername,
-                    { color: themeMode === "light" ? theme.text : "#374151" },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {friend.username}
+        )}
+
+        {item.tags.length > 0 && (
+          <View style={styles.pinTags}>
+            {item.tags.map((tag) => (
+              <View
+                key={tag.tag_name}
+                style={[styles.pinTagChip, { backgroundColor: theme.hover }]}
+              >
+                <Text style={[styles.pinTagText, { color: theme.text }]}>
+                  {tag.tag_name}
                 </Text>
               </View>
             ))}
-          </ScrollView>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+          </View>
+        )}
+
+        {/* show recommended by for feed pins */}
+        {item.recommended_by && item.recommended_by.length > 0 && (
+          <View style={styles.recommendedSection}>
+            <Text
+              style={[
+                styles.recommendedLabel,
+                {
+                  color:
+                    themeMode === "light" ? theme.textSecondary : "#6b7280",
+                },
+              ]}
+            >
+              Recommended by:
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recommendedList}
+            >
+              {item.recommended_by.map((friend, index) => (
+                <View key={index} style={styles.friendItem}>
+                  <View
+                    style={[
+                      styles.friendAvatar,
+                      {
+                        backgroundColor:
+                          themeMode === "light" ? theme.hover : "#e5e7eb",
+                        borderColor:
+                          themeMode === "light" ? theme.border : "#d1d5db",
+                      },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="person"
+                      size={16}
+                      color={themeMode === "light" ? theme.text : "#1f2937"}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.friendUsername,
+                      { color: themeMode === "light" ? theme.text : "#374151" },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {friend.username}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      {/* Header Toggle - Feed first, My Pins second */}
+      <View style={styles.headerToggle}>
+        <TouchableOpacity
+          style={[
+            styles.toggleBtn,
+            activeTab === "feed" && [
+              styles.toggleBtnActive,
+              { backgroundColor: theme.accent },
+            ],
+          ]}
+          onPress={() => setActiveTab("feed")}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              { color: activeTab === "feed" ? theme.accentText : theme.text },
+            ]}
+          >
+            Feed
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.toggleBtn,
+            activeTab === "my-pins" && [
+              styles.toggleBtnActive,
+              { backgroundColor: theme.accent },
+            ],
+          ]}
+          onPress={() => setActiveTab("my-pins")}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              {
+                color: activeTab === "my-pins" ? theme.accentText : theme.text,
+              },
+            ]}
+          >
+            My Pins
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View
@@ -265,7 +523,9 @@ const MyPins: React.FC = () => {
               styles.searchInput,
               { color: themeMode === "light" ? "#1f2937" : "#f3f4f6" },
             ]}
-            placeholder="Search your pins..."
+            placeholder={
+              activeTab === "my-pins" ? "Search your pins..." : "Search feed..."
+            }
             placeholderTextColor={themeMode === "light" ? "#9ca3af" : "#6b7280"}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -329,38 +589,319 @@ const MyPins: React.FC = () => {
         })}
       </ScrollView>
 
-      {/* Pins List */}
+      {/* Pins Count */}
       <View style={styles.listHeader}>
         <Text style={[styles.listHeaderText, { color: theme.text }]}>
           {filteredPins.length} {filteredPins.length === 1 ? "Pin" : "Pins"}
         </Text>
       </View>
 
-      <FlatList
-        data={filteredPins}
-        renderItem={renderPinCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons
-              name="location-off"
-              size={64}
-              color={theme.textSecondary}
-              style={{ opacity: 0.5 }}
-            />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              No pins found
+      {/* Loading State */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.text} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredPins}
+          renderItem={renderPinCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons
+                name="location-off"
+                size={64}
+                color={theme.textSecondary}
+                style={{ opacity: 0.5 }}
+              />
+              <Text style={[styles.emptyText, { color: theme.text }]}>
+                No pins found
+              </Text>
+              <Text
+                style={[styles.emptySubtext, { color: theme.textSecondary }]}
+              >
+                {searchQuery || selectedTags.length > 0
+                  ? "Try adjusting your filters"
+                  : activeTab === "my-pins"
+                  ? "Add some pins on the map to see them here!"
+                  : "No pins in the feed yet"}
+              </Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Edit Modal */}
+      <Modal
+        visible={editingPin !== null}
+        animationType="slide"
+        onRequestClose={() => setEditingPin(null)}
+      >
+        <View style={[styles.editModal, { backgroundColor: theme.bg }]}>
+          {/* Edit Header */}
+          <View style={styles.editHeader}>
+            <Text style={[styles.editTitle, { color: theme.text }]}>
+              Edit Pin
             </Text>
-            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-              {searchQuery || selectedTags.length > 0
-                ? "Try adjusting your filters"
-                : "Start adding locations to see them here"}
-            </Text>
+            <TouchableOpacity
+              onPress={() => setEditingPin(null)}
+              style={[styles.closeButton, { backgroundColor: theme.hover }]}
+            >
+              <MaterialIcons name="close" size={24} color={theme.text} />
+            </TouchableOpacity>
           </View>
-        }
-      />
+
+          <ScrollView style={styles.editContent}>
+            {/* Location Name */}
+            <View style={styles.editSection}>
+              <Text style={[styles.editLabel, { color: theme.text }]}>
+                Location Name *
+              </Text>
+              <TextInput
+                style={[
+                  styles.editInput,
+                  {
+                    backgroundColor:
+                      themeMode === "dark" ? theme.border : theme.accent,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+                value={editLocationName}
+                onChangeText={setEditLocationName}
+                placeholder="Enter location name"
+                placeholderTextColor={theme.textSecondary}
+              />
+            </View>
+
+            {/* Notes */}
+            <View style={styles.editSection}>
+              <Text style={[styles.editLabel, { color: theme.text }]}>
+                Notes
+              </Text>
+              <TextInput
+                style={[
+                  styles.editTextArea,
+                  {
+                    backgroundColor:
+                      themeMode === "dark" ? theme.border : theme.accent,
+                    color: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+                value={editNotes}
+                onChangeText={setEditNotes}
+                placeholder="Your notes..."
+                placeholderTextColor={theme.textSecondary}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Photos */}
+            <View style={styles.editSection}>
+              <Text style={[styles.editLabel, { color: theme.text }]}>
+                Photos ({editExistingPhotos.length + editNewPhotos.length}/
+                {MAX_PHOTOS})
+              </Text>
+
+              {/* photo buttons */}
+              {editExistingPhotos.length + editNewPhotos.length <
+                MAX_PHOTOS && (
+                <View style={styles.editPhotoButtons}>
+                  <TouchableOpacity
+                    style={[
+                      styles.editPhotoButton,
+                      {
+                        backgroundColor: theme.hover,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    onPress={pickEditPhotos}
+                  >
+                    <MaterialIcons
+                      name="photo-library"
+                      size={20}
+                      color={theme.text}
+                    />
+                    <Text
+                      style={[
+                        styles.editPhotoButtonText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      Choose
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.editPhotoButton,
+                      {
+                        backgroundColor: theme.hover,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    onPress={takeEditPhoto}
+                  >
+                    <MaterialIcons
+                      name="camera-alt"
+                      size={20}
+                      color={theme.text}
+                    />
+                    <Text
+                      style={[
+                        styles.editPhotoButtonText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      Camera
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* existing photos */}
+              {editExistingPhotos.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.editPhotoScroll}
+                >
+                  {editExistingPhotos.map((uri, index) => (
+                    <View
+                      key={`existing-${index}`}
+                      style={styles.editPhotoContainer}
+                    >
+                      <Image source={{ uri }} style={styles.editPhotoPreview} />
+                      <TouchableOpacity
+                        style={[
+                          styles.editRemovePhotoBtn,
+                          { backgroundColor: theme.accent },
+                        ]}
+                        onPress={() => removeExistingPhoto(index)}
+                      >
+                        <MaterialIcons
+                          name="close"
+                          size={14}
+                          color={theme.accentText}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* new photos */}
+              {editNewPhotos.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.editPhotoScroll}
+                >
+                  {editNewPhotos.map((uri, index) => (
+                    <View
+                      key={`new-${index}`}
+                      style={styles.editPhotoContainer}
+                    >
+                      <Image source={{ uri }} style={styles.editPhotoPreview} />
+                      <View
+                        style={[
+                          styles.newPhotoBadge,
+                          { backgroundColor: theme.accent },
+                        ]}
+                      >
+                        <Text style={{ color: theme.accentText, fontSize: 10 }}>
+                          NEW
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.editRemovePhotoBtn,
+                          { backgroundColor: theme.accent },
+                        ]}
+                        onPress={() => removeNewPhoto(index)}
+                      >
+                        <MaterialIcons
+                          name="close"
+                          size={14}
+                          color={theme.accentText}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Tags */}
+            <View style={styles.editSection}>
+              <Text style={[styles.editLabel, { color: theme.text }]}>
+                Tags * (select at least one)
+              </Text>
+              <View style={styles.editTagsGrid}>
+                {VALID_TAGS.map((tag) => {
+                  const isSelected = editTags.includes(tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      onPress={() => toggleEditTag(tag)}
+                      style={[
+                        styles.editTagChip,
+                        {
+                          backgroundColor: isSelected
+                            ? theme.accent
+                            : theme.hover,
+                          borderColor: isSelected ? theme.accent : theme.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.editTagText,
+                          { color: isSelected ? theme.accentText : theme.text },
+                        ]}
+                      >
+                        {tag}
+                      </Text>
+                      {isSelected && (
+                        <MaterialIcons
+                          name="check"
+                          size={16}
+                          color={theme.accentText}
+                          style={{ marginLeft: 4 }}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 },
+              ]}
+              onPress={handleSaveEdit}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={theme.accentText} />
+              ) : (
+                <Text
+                  style={[styles.saveButtonText, { color: theme.accentText }]}
+                >
+                  Save Changes
+                </Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -369,6 +910,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // header toggle
+  headerToggle: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    gap: 10,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  toggleBtnActive: {
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  toggleText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // search
   searchContainer: {
     paddingHorizontal: 20,
     paddingTop: 15,
@@ -398,6 +964,7 @@ const styles = StyleSheet.create({
     padding: 5,
     marginLeft: 5,
   },
+  // tags
   tagsContainer: {
     maxHeight: 50,
     marginBottom: 10,
@@ -428,6 +995,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
+  // list
   listHeader: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -440,6 +1008,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // pin card
   pinCard: {
     borderRadius: 16,
     padding: 16,
@@ -454,7 +1028,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   pinTitleContainer: {
     flexDirection: "row",
@@ -467,9 +1041,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
   },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionBtn: {
+    padding: 4,
+  },
   pinDate: {
     fontSize: 12,
-    marginLeft: 8,
+    marginBottom: 8,
+    marginLeft: 32,
   },
   pinNotes: {
     fontSize: 14,
@@ -524,6 +1106,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: "center",
   },
+  // empty state
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -538,6 +1121,133 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: "center",
+  },
+  // edit modal
+  editModal: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 60 : 20,
+  },
+  editHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  editTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editContent: {
+    flex: 1,
+  },
+  editSection: {
+    marginBottom: 20,
+  },
+  editLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+  },
+  editTextArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    minHeight: 100,
+  },
+  editTagsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  editTagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  editTagText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  // edit photo styles
+  editPhotoButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  editPhotoButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  editPhotoButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  editPhotoScroll: {
+    marginTop: 8,
+  },
+  editPhotoContainer: {
+    marginRight: 10,
+    position: "relative",
+  },
+  editPhotoPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  editRemovePhotoBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  newPhotoBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  saveButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 40,
+  },
+  saveButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
   },
 });
 

@@ -18,8 +18,17 @@ import { getPostsWithTags, PostWithTags } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
 import NewPin from "./NewPin";
+import { DUMMY_PINS } from "../../lib/data/dummyPins";
 
 const { width, height } = Dimensions.get("window");
+
+// fixed initial region - San Francisco area
+const INITIAL_REGION: Region = {
+  latitude: 37.78825,
+  longitude: -122.4324,
+  latitudeDelta: 0.5,
+  longitudeDelta: 0.5,
+};
 
 const Map: React.FC = () => {
   const { theme, themeMode } = useTheme();
@@ -31,14 +40,6 @@ const Map: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedPost, setSelectedPost] = useState<PostWithTags | null>(null);
   const [showNewPin, setShowNewPin] = useState(false);
-  
-  // Fixed initial region - San Francisco area with wide view
-  const initialRegion: Region = {
-    latitude: 37.78825,
-    longitude: -122.4324,
-    latitudeDelta: 50,
-    longitudeDelta: 50,
-  };
 
   // Fetch posts on mount
   useEffect(() => {
@@ -54,10 +55,15 @@ const Map: React.FC = () => {
     try {
       setLoading(true);
       const fetchedPosts = await getPostsWithTags();
-      setPosts(fetchedPosts);
-      setFilteredPosts(fetchedPosts);
+      // combine real posts with dummy pins
+      const allPosts = [...fetchedPosts, ...DUMMY_PINS];
+      setPosts(allPosts);
+      setFilteredPosts(allPosts);
     } catch (error) {
       console.error("Error fetching posts:", error);
+      // still show dummy pins if fetch fails
+      setPosts(DUMMY_PINS);
+      setFilteredPosts(DUMMY_PINS);
     } finally {
       setLoading(false);
     }
@@ -92,11 +98,6 @@ const Map: React.FC = () => {
     );
   };
 
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedTags([]);
-  };
-
   const handleMarkerPress = (post: PostWithTags) => {
     setSelectedPost(post);
   };
@@ -111,10 +112,10 @@ const Map: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Map */}
+      {/* Map - using initialRegion to prevent crashes */}
       <MapView
         style={styles.map}
-        initialRegion={initialRegion}
+        initialRegion={INITIAL_REGION}
         mapType="standard"
       >
         {filteredPosts.map((post) => (
@@ -321,12 +322,12 @@ const Map: React.FC = () => {
         />
       </TouchableOpacity>
 
-      {/* New Pin Modal */}
+      {/* New Pin Modal - uses the NewPin component */}
       <NewPin
         visible={showNewPin}
         onClose={() => setShowNewPin(false)}
         onPinCreated={fetchPosts}
-        initialRegion={initialRegion}
+        initialRegion={INITIAL_REGION}
       />
     </View>
   );

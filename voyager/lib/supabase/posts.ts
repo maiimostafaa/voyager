@@ -58,9 +58,9 @@ export interface PostWithTags extends Post {
   tags: PostTag[];
 }
 
-export const getPostsWithTags = async (): Promise<PostWithTags[]> => {
-  // Get all posts (RLS automatically filters to own posts and accepted friends' posts)
-  const posts = await getPosts();
+export const getPostsWithTags = async (userId?: string): Promise<PostWithTags[]> => {
+  // Get posts - optionally filtered by user
+  const posts = await getPosts(userId);
 
   if (posts.length === 0) {
     return [];
