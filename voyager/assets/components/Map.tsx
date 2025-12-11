@@ -31,12 +31,14 @@ const Map: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedPost, setSelectedPost] = useState<PostWithTags | null>(null);
   const [showNewPin, setShowNewPin] = useState(false);
-  const [region, setRegion] = useState<Region>({
+  
+  // Fixed initial region - San Francisco area with wide view
+  const initialRegion: Region = {
     latitude: 37.78825,
     longitude: -122.4324,
     latitudeDelta: 50,
     longitudeDelta: 50,
-  });
+  };
 
   // Fetch posts on mount
   useEffect(() => {
@@ -54,26 +56,6 @@ const Map: React.FC = () => {
       const fetchedPosts = await getPostsWithTags();
       setPosts(fetchedPosts);
       setFilteredPosts(fetchedPosts);
-
-      // Calculate initial region to show all posts
-      if (fetchedPosts.length > 0) {
-        const latitudes = fetchedPosts.map((p) => p.latitude);
-        const longitudes = fetchedPosts.map((p) => p.longitude);
-        const minLat = Math.min(...latitudes);
-        const maxLat = Math.max(...latitudes);
-        const minLng = Math.min(...longitudes);
-        const maxLng = Math.max(...longitudes);
-
-        const latDelta = Math.max((maxLat - minLat) * 1.5, 0.1);
-        const lngDelta = Math.max((maxLng - minLng) * 1.5, 0.1);
-
-        setRegion({
-          latitude: (minLat + maxLat) / 2,
-          longitude: (minLng + maxLng) / 2,
-          latitudeDelta: latDelta,
-          longitudeDelta: lngDelta,
-        });
-      }
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
@@ -132,8 +114,7 @@ const Map: React.FC = () => {
       {/* Map */}
       <MapView
         style={styles.map}
-        region={region}
-        onRegionChangeComplete={setRegion}
+        initialRegion={initialRegion}
         mapType="standard"
       >
         {filteredPosts.map((post) => (
@@ -345,7 +326,7 @@ const Map: React.FC = () => {
         visible={showNewPin}
         onClose={() => setShowNewPin(false)}
         onPinCreated={fetchPosts}
-        initialRegion={region}
+        initialRegion={initialRegion}
       />
     </View>
   );

@@ -242,17 +242,23 @@ export const uploadPostImage = async (
   imageUri: string
 ): Promise<string | null> => {
   try {
-    const response = await fetch(imageUri);
-    const blob = await response.blob();
-    const fileExt = imageUri.split('.').pop() || 'jpg';
+    // get file extension from uri
+    const uriParts = imageUri.split('.');
+    const fileExt = uriParts[uriParts.length - 1]?.toLowerCase() || 'jpg';
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${userId}/${postId}/${fileName}`;
 
+    // for react native, we need to read the file differently
+    // fetch the local file and convert to arraybuffer
+    const response = await fetch(imageUri);
+    const arrayBuffer = await response.arrayBuffer();
+
     const { error } = await supabase.storage
       .from('post-images')
-      .upload(filePath, blob, {
+      .upload(filePath, arrayBuffer, {
         cacheControl: '3600',
         upsert: false,
+        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
       });
 
     if (error) {

@@ -14,16 +14,19 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  FlatList,
+  Image,
 } from "react-native";
-import MapView, { Marker, Region } from "react-native-maps";
+import { Region } from "react-native-maps";
 import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../themes/themeMode";
-import { palette } from "../themes/palette";
 import { useAuth } from "../contexts/AuthContext";
-import { createPost } from "../../lib/supabase/posts";
+import { createPost, uploadPostImage } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
+
+// max photos per pin
+const MAX_PHOTOS = 5;
 
 // type for search results from nominatim api
 interface SearchResult {
@@ -49,7 +52,6 @@ const NewPin: React.FC<NewPinProps> = ({
 }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
-  const mapRef = useRef<MapView>(null);
 
   // form state
   const [locationName, setLocationName] = useState("");
@@ -60,6 +62,7 @@ const NewPin: React.FC<NewPinProps> = ({
     longitude: number;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
 
   // search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,17 +133,6 @@ const NewPin: React.FC<NewPinProps> = ({
     setCoords({ latitude: lat, longitude: lon });
     setShowResults(false);
     setSearchResults([]);
-
-    // animate map to the selected location
-    mapRef.current?.animateToRegion(
-      {
-        latitude: lat,
-        longitude: lon,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      },
-      500
-    );
   };
 
   // get user's current location
@@ -184,17 +176,6 @@ const NewPin: React.FC<NewPinProps> = ({
         setLocationName("Current Location");
         setSearchQuery("Current Location");
       }
-
-      // animate map to current location
-      mapRef.current?.animateToRegion(
-        {
-          latitude,
-          longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
-        500
-      );
     } catch (error) {
       console.error("Location error:", error);
       Alert.alert("Error", "Could not get your location. Please try again.");
@@ -203,10 +184,71 @@ const NewPin: React.FC<NewPinProps> = ({
     }
   };
 
-  // handle marker drag end
-  const handleMarkerDragEnd = (e: any) => {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setCoords({ latitude, longitude });
+  // pick photos from library
+  const pickPhotos = async () => {
+    if (selectedPhotos.length >= MAX_PHOTOS) {
+      Alert.alert(
+        "Maximum Photos",
+        `You can only add up to ${MAX_PHOTOS} photos.`
+      );
+      return;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "We need access to your photos to add them to your pin."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: MAX_PHOTOS - selectedPhotos.length,
+    });
+
+    if (!result.canceled && result.assets) {
+      const newPhotos = result.assets.map((asset) => asset.uri);
+      setSelectedPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
+    }
+  };
+
+  // take a photo with camera
+  const takePhoto = async () => {
+    if (selectedPhotos.length >= MAX_PHOTOS) {
+      Alert.alert(
+        "Maximum Photos",
+        `You can only add up to ${MAX_PHOTOS} photos.`
+      );
+      return;
+    }
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "We need access to your camera to take photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setSelectedPhotos((prev) =>
+        [...prev, result.assets[0].uri].slice(0, MAX_PHOTOS)
+      );
+    }
+  };
+
+  // remove a photo
+  const removePhoto = (index: number) => {
+    setSelectedPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   // reset form
@@ -216,6 +258,7 @@ const NewPin: React.FC<NewPinProps> = ({
     setNotes("");
     setSelectedTags([]);
     setCoords(null);
+    setSelectedPhotos([]);
     setSearchResults([]);
     setShowResults(false);
   };
@@ -272,10 +315,34 @@ const NewPin: React.FC<NewPinProps> = ({
       });
 
       if (newPost) {
-        Alert.alert(
-          "Success!",
-          "Your recommendation has been added to the map."
-        );
+        // upload photos if any
+        if (selectedPhotos.length > 0) {
+          let uploadedCount = 0;
+          for (const photoUri of selectedPhotos) {
+            try {
+              const url = await uploadPostImage(user.id, newPost.id, photoUri);
+              if (url) uploadedCount++;
+            } catch (err) {
+              console.error("Photo upload error:", err);
+            }
+          }
+          if (uploadedCount < selectedPhotos.length) {
+            Alert.alert(
+              "Partial Success",
+              `Pin created! ${uploadedCount}/${selectedPhotos.length} photos uploaded.`
+            );
+          } else {
+            Alert.alert(
+              "Success!",
+              "Your recommendation has been added to the map."
+            );
+          }
+        } else {
+          Alert.alert(
+            "Success!",
+            "Your recommendation has been added to the map."
+          );
+        }
         handleClose();
         onPinCreated();
       } else {
@@ -443,45 +510,40 @@ const NewPin: React.FC<NewPinProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* map for fine-tuning location */}
+          {/* show selected location */}
           {coords && (
-            <View style={styles.formSection}>
-              <Text style={[styles.formLabel, { color: theme.text }]}>
-                Adjust Pin Location
-              </Text>
-              <Text style={[styles.formHelper, { color: theme.textSecondary }]}>
-                Drag the pin to fine-tune the exact spot
-              </Text>
-              <View
-                style={[styles.miniMapContainer, { borderColor: theme.border }]}
-              >
-                <MapView
-                  ref={mapRef}
-                  style={styles.miniMap}
-                  initialRegion={{
-                    ...initialRegion,
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                  mapType="standard"
+            <View
+              style={[
+                styles.selectedLocation,
+                { backgroundColor: theme.hover, borderColor: theme.border },
+              ]}
+            >
+              <MaterialIcons name="place" size={24} color={theme.accent} />
+              <View style={styles.selectedLocationText}>
+                <Text
+                  style={[styles.selectedLocationName, { color: theme.text }]}
                 >
-                  <Marker
-                    coordinate={coords}
-                    draggable
-                    onDragEnd={handleMarkerDragEnd}
-                    pinColor={
-                      themeMode === "dark"
-                        ? palette.darkBlueText
-                        : palette.lightBlueAccent
-                    }
-                  />
-                </MapView>
+                  {locationName || "Selected Location"}
+                </Text>
+                <Text
+                  style={[styles.coordsText, { color: theme.textSecondary }]}
+                >
+                  📍 {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
+                </Text>
               </View>
-              <Text style={[styles.coordsText, { color: theme.textSecondary }]}>
-                📍 {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
-              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setCoords(null);
+                  setLocationName("");
+                  setSearchQuery("");
+                }}
+              >
+                <MaterialIcons
+                  name="close"
+                  size={20}
+                  color={theme.textSecondary}
+                />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -514,6 +576,76 @@ const NewPin: React.FC<NewPinProps> = ({
             <Text style={[styles.charCount, { color: theme.textSecondary }]}>
               {notes.length}/500
             </Text>
+          </View>
+
+          {/* photos section */}
+          <View style={styles.formSection}>
+            <Text style={[styles.formLabel, { color: theme.text }]}>
+              Photos ({selectedPhotos.length}/{MAX_PHOTOS})
+            </Text>
+
+            {/* photo buttons */}
+            <View style={styles.photoButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.photoButton,
+                  { backgroundColor: theme.hover, borderColor: theme.border },
+                ]}
+                onPress={pickPhotos}
+                disabled={selectedPhotos.length >= MAX_PHOTOS}
+              >
+                <MaterialIcons
+                  name="photo-library"
+                  size={22}
+                  color={theme.text}
+                />
+                <Text style={[styles.photoButtonText, { color: theme.text }]}>
+                  Choose Photos
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.photoButton,
+                  { backgroundColor: theme.hover, borderColor: theme.border },
+                ]}
+                onPress={takePhoto}
+                disabled={selectedPhotos.length >= MAX_PHOTOS}
+              >
+                <MaterialIcons name="camera-alt" size={22} color={theme.text} />
+                <Text style={[styles.photoButtonText, { color: theme.text }]}>
+                  Take Photo
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* photo previews */}
+            {selectedPhotos.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.photoPreviewScroll}
+              >
+                {selectedPhotos.map((uri, index) => (
+                  <View key={uri + index} style={styles.photoPreviewContainer}>
+                    <Image source={{ uri }} style={styles.photoPreview} />
+                    <TouchableOpacity
+                      style={[
+                        styles.removePhotoBtn,
+                        { backgroundColor: theme.accent },
+                      ]}
+                      onPress={() => removePhoto(index)}
+                    >
+                      <MaterialIcons
+                        name="close"
+                        size={16}
+                        color={theme.accentText}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
           {/* tags section */}
@@ -633,10 +765,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 8,
   },
-  formHelper: {
-    fontSize: 13,
-    marginBottom: 8,
-  },
   // search input styles
   searchContainer: {
     flexDirection: "row",
@@ -686,6 +814,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
   },
+  // selected location display
+  selectedLocation: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+    marginBottom: 20,
+    gap: 12,
+  },
+  selectedLocationText: {
+    flex: 1,
+  },
+  selectedLocationName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   // text area for notes
   formTextArea: {
     borderWidth: 1,
@@ -700,20 +847,49 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginTop: 4,
   },
-  // mini map
-  miniMapContainer: {
-    height: 180,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-  },
-  miniMap: {
-    flex: 1,
-  },
   coordsText: {
     fontSize: 13,
-    marginTop: 8,
-    textAlign: "center",
+  },
+  // photos
+  photoButtons: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  photoButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  photoButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  photoPreviewScroll: {
+    marginTop: 12,
+  },
+  photoPreviewContainer: {
+    marginRight: 10,
+    position: "relative",
+  },
+  photoPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+  },
+  removePhotoBtn: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   // tags
   tagsGrid: {
