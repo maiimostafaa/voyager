@@ -14,7 +14,8 @@ export const DUMMY_PINS = [
       { post_id: "dummy-1", tag_name: "Photo Spot" },
       { post_id: "dummy-1", tag_name: "Nature" },
     ],
-    recommended_by: [
+    created_by: { username: "wanderlust_jane" },
+    also_recommended_by: [
       { username: "sarah_travels" },
       { username: "john_doe" },
       { username: "emma_w" },
@@ -30,7 +31,8 @@ export const DUMMY_PINS = [
     created_at: "2024-01-10",
     updated_at: "2024-01-10",
     tags: [{ post_id: "dummy-2", tag_name: "Food Spot" }],
-    recommended_by: [{ username: "foodie_mike" }, { username: "lisa_eats" }],
+    created_by: { username: "foodie_mike" },
+    also_recommended_by: [{ username: "lisa_eats" }, { username: "brunch_queen" }],
   },
   {
     id: "dummy-3",
@@ -45,7 +47,8 @@ export const DUMMY_PINS = [
       { post_id: "dummy-3", tag_name: "Live Music" },
       { post_id: "dummy-3", tag_name: "Bar" },
     ],
-    recommended_by: [{ username: "music_lover" }],
+    created_by: { username: "music_lover" },
+    also_recommended_by: [{ username: "concert_king" }],
   },
   {
     id: "dummy-4",
@@ -57,8 +60,8 @@ export const DUMMY_PINS = [
     created_at: "2024-01-20",
     updated_at: "2024-01-20",
     tags: [{ post_id: "dummy-4", tag_name: "Nature" }],
-    recommended_by: [
-      { username: "hiker_alex" },
+    created_by: { username: "hiker_alex" },
+    also_recommended_by: [
       { username: "nature_photos" },
       { username: "outdoor_life" },
       { username: "trail_blazer" },
@@ -77,7 +80,8 @@ export const DUMMY_PINS = [
       { post_id: "dummy-5", tag_name: "Live Music" },
       { post_id: "dummy-5", tag_name: "Club" },
     ],
-    recommended_by: [{ username: "concert_king" }, { username: "indie_fan" }],
+    created_by: { username: "indie_fan" },
+    also_recommended_by: [{ username: "concert_king" }, { username: "sf_nightlife" }],
   },
   {
     id: "dummy-6",
@@ -90,7 +94,7 @@ export const DUMMY_PINS = [
     created_at: "2024-01-08",
     updated_at: "2024-01-08",
     tags: [{ post_id: "dummy-6", tag_name: "Museum" }],
-    recommended_by: [{ username: "art_enthusiast" }],
+    created_by: { username: "art_enthusiast" },
+    also_recommended_by: [{ username: "culture_vulture" }, { username: "gallery_girl" }],
   },
 ];
-

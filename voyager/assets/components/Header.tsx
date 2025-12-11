@@ -1,9 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onProfilePress?: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onProfilePress }) => {
   const { theme, themeMode, toggleTheme } = useTheme();
 
   const logoSource =
@@ -29,16 +33,24 @@ const Header: React.FC = () => {
           Voyager
         </Text>
       </View>
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: theme.hover }]}
-        onPress={toggleTheme}
-      >
-        <Ionicons
-          name={themeMode === "light" ? "sunny" : "moon"}
-          size={22}
-          color={theme.text}
-        />
-      </TouchableOpacity>
+      <View style={styles.headerButtons}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.hover }]}
+          onPress={toggleTheme}
+        >
+          <Ionicons
+            name={themeMode === "light" ? "sunny" : "moon"}
+            size={22}
+            color={theme.text}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.hover }]}
+          onPress={onProfilePress}
+        >
+          <MaterialIcons name="account-circle" size={24} color={theme.text} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -67,6 +79,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     lineHeight: 34,
     includeFontPadding: false,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   button: {
     width: 40,

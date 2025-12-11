@@ -448,11 +448,13 @@ const NewPin: React.FC<NewPinProps> = ({
 
             {/* search results dropdown */}
             {showResults && searchResults.length > 0 && (
-              <View
+              <ScrollView
                 style={[
                   styles.resultsDropdown,
                   { backgroundColor: theme.bg, borderColor: theme.border },
                 ]}
+                nestedScrollEnabled={true}
+                keyboardShouldPersistTaps="handled"
               >
                 {searchResults.map((result) => (
                   <TouchableOpacity
@@ -476,7 +478,7 @@ const NewPin: React.FC<NewPinProps> = ({
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             )}
 
             {/* use current location button */}

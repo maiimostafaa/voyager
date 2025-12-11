@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   Animated,
 } from "react-native";
-import { MaterialIcons, FontAwesome5, Feather } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 
-type TabKey = "Map" | "MyPins" | "TripPlan" | "Settings";
+type TabKey = "Map" | "MyPins" | "TripPlan";
 
 interface FooterProps {
   activeTab: TabKey;
@@ -44,13 +44,6 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
         label: "Trips",
         icon: (color) => (
           <MaterialIcons name="luggage" size={26} color={color} />
-        ),
-      },
-      {
-        key: "Settings",
-        label: "Profile",
-        icon: (color) => (
-          <MaterialIcons name="account-circle" size={26} color={color} />
         ),
       },
     ],

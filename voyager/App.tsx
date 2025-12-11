@@ -12,11 +12,13 @@ import TripPlan from './assets/components/TripPlan';
 import AuthScreen from './assets/components/AuthScreen';
 import Footer from './assets/components/footer';
 
+type TabKey = 'Map' | 'MyPins' | 'TripPlan' | 'Settings';
+
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
   const { loading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'Map' | 'MyPins' | 'TripPlan' | 'Settings'>('Map');
+  const [activeTab, setActiveTab] = useState<TabKey>('Map');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -33,6 +35,10 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleProfilePress = () => {
+    setActiveTab('Settings');
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -47,7 +53,7 @@ const AppContent: React.FC = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={theme.statusBar as StatusBarStyle} />
-      <Header />
+      <Header onProfilePress={handleProfilePress} />
       <View style={styles.content}>{renderContent()}</View>
       <Footer activeTab={activeTab} onTabPress={setActiveTab} />
     </SafeAreaView>

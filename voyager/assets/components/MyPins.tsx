@@ -42,12 +42,13 @@ type DisplayPin = {
   tags: { tag_name: string }[];
   created_at: string;
   user_id: string;
-  recommended_by?: { username: string }[];
+  created_by?: { username: string };
+  also_recommended_by?: { username: string }[];
 };
 
 const MyPins: React.FC = () => {
   const { theme, themeMode } = useTheme();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // toggle between feed and my pins - default to feed
   const [activeTab, setActiveTab] = useState<"feed" | "my-pins">("feed");
@@ -367,9 +368,17 @@ const MyPins: React.FC = () => {
         <Text
           style={[
             styles.pinDate,
-            { color: themeMode === "light" ? theme.textSecondary : "#6b7280" },
+            { color: themeMode === "light" ? "#4b5563" : "#9ca3af" },
           ]}
         >
+          {/* show creator: user's own pins show their username, dummy pins show created_by */}
+          {isOwnPin(item) && profile?.username ? (
+            <Text style={styles.creatorInline}>@{profile.username} • </Text>
+          ) : item.created_by ? (
+            <Text style={styles.creatorInline}>
+              @{item.created_by.username} •{" "}
+            </Text>
+          ) : null}
           {new Date(item.created_at).toLocaleDateString()}
         </Text>
 
@@ -400,26 +409,25 @@ const MyPins: React.FC = () => {
           </View>
         )}
 
-        {/* show recommended by for feed pins */}
-        {item.recommended_by && item.recommended_by.length > 0 && (
+        {/* show also recommended by for feed pins */}
+        {item.also_recommended_by && item.also_recommended_by.length > 0 && (
           <View style={styles.recommendedSection}>
             <Text
               style={[
                 styles.recommendedLabel,
                 {
-                  color:
-                    themeMode === "light" ? theme.textSecondary : "#6b7280",
+                  color: themeMode === "light" ? "#4b5563" : "#9ca3af",
                 },
               ]}
             >
-              Recommended by:
+              Also recommended by:
             </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.recommendedList}
             >
-              {item.recommended_by.map((friend, index) => (
+              {item.also_recommended_by.map((friend, index) => (
                 <View key={index} style={styles.friendItem}>
                   <View
                     style={[
@@ -1072,6 +1080,9 @@ const styles = StyleSheet.create({
   },
   pinTagText: {
     fontSize: 12,
+    fontWeight: "500",
+  },
+  creatorInline: {
     fontWeight: "500",
   },
   recommendedSection: {
