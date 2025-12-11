@@ -42,6 +42,11 @@ interface NewPinProps {
   onClose: () => void;
   onPinCreated: () => void;
   initialRegion: Region;
+  prefillLocation?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  } | null;
 }
 
 const NewPin: React.FC<NewPinProps> = ({
@@ -49,6 +54,7 @@ const NewPin: React.FC<NewPinProps> = ({
   onClose,
   onPinCreated,
   initialRegion,
+  prefillLocation,
 }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
@@ -364,6 +370,18 @@ const NewPin: React.FC<NewPinProps> = ({
       }
     };
   }, []);
+
+  // prefill location if passed from map search
+  useEffect(() => {
+    if (visible && prefillLocation) {
+      setLocationName(prefillLocation.name);
+      setSearchQuery(prefillLocation.name);
+      setCoords({
+        latitude: prefillLocation.latitude,
+        longitude: prefillLocation.longitude,
+      });
+    }
+  }, [visible, prefillLocation]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
