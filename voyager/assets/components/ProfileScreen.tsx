@@ -21,9 +21,10 @@ import { LocationTraveled } from '../../lib/types/database.types';
 interface ProfileScreenProps {
   onEditPress?: () => void;
   onSignOut?: () => void;
+  onMyPinsPress?: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut, onMyPinsPress }) => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
   const [locations, setLocations] = useState<LocationTraveled[]>([]);
@@ -80,6 +81,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
       style={[styles.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={styles.contentContainer}
     >
+      {/* Sign Out Button - Top Right */}
+      {onSignOut && (
+        <TouchableOpacity
+          style={[
+            styles.signOutButtonCircle,
+            {
+              backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text,
+            },
+          ]}
+          onPress={onSignOut}
+        >
+          <MaterialIcons
+            name="logout"
+            size={20}
+            color={themeMode === 'light' ? palette.darkBlueText : theme.bg}
+          />
+        </TouchableOpacity>
+      )}
+
       {/* Profile Header */}
       <View style={styles.header}>
         <View style={[styles.avatarContainer, { borderColor: theme.border }]}>
@@ -113,7 +133,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
           </Text>
         )}
 
-        {(onEditPress || onSignOut) && (
+        {(onEditPress || onMyPinsPress) && (
           <View style={styles.buttonContainer}>
             {onEditPress && (
               <TouchableOpacity
@@ -140,28 +160,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut })
                 </Text>
               </TouchableOpacity>
             )}
-            {onSignOut && (
+            {onMyPinsPress && (
               <TouchableOpacity
                 style={[
-                  styles.signOutButton,
+                  styles.myPinsButtonSmall,
                   {
                     backgroundColor: themeMode === 'light' ? palette.darkBlue : theme.text,
                   },
                 ]}
-                onPress={onSignOut}
+                onPress={onMyPinsPress}
               >
                 <MaterialIcons
-                  name="logout"
+                  name="push-pin"
                   size={18}
                   color={themeMode === 'light' ? palette.darkBlueText : theme.bg}
                 />
                 <Text
                   style={[
-                    styles.signOutButtonText,
+                    styles.myPinsButtonSmallText,
                     { color: themeMode === 'light' ? palette.darkBlueText : theme.bg },
                   ]}
                 >
-                  Sign Out
+                  Saved Pins
                 </Text>
               </TouchableOpacity>
             )}
@@ -366,10 +386,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
   },
+  signOutButtonCircle: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
+  },
   buttonContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 4,
+    justifyContent: 'center',
   },
   editButton: {
     flexDirection: 'row',
@@ -383,7 +421,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  signOutButton: {
+  myPinsButtonSmall: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
@@ -391,7 +429,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 6,
   },
-  signOutButtonText: {
+  myPinsButtonSmallText: {
     fontSize: 14,
     fontWeight: '600',
   },

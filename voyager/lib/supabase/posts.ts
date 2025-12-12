@@ -93,6 +93,50 @@ export const getPostsWithTags = async (userId?: string): Promise<PostWithTags[]>
   }));
 };
 
+export const getPostsByLocation = async (locationName: string): Promise<PostWithTags[]> => {
+  // Get all posts for this location (RLS filters to own posts + friends' posts)
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('*')
+    .ilike('location_name', locationName)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching posts by location:', error);
+    return [];
+  }
+
+  if (!posts || posts.length === 0) {
+    return [];
+  }
+
+  // Get all tags for all posts in one query
+  const postIds = posts.map(p => p.id);
+  const { data: allTags, error: tagsError } = await supabase
+    .from('post_tags')
+    .select('*')
+    .in('post_id', postIds);
+
+  if (tagsError) {
+    console.error('Error fetching post tags:', tagsError);
+  }
+
+  // Group tags by post_id
+  const tagsByPostId = (allTags || []).reduce((acc, tag) => {
+    if (!acc[tag.post_id]) {
+      acc[tag.post_id] = [];
+    }
+    acc[tag.post_id].push(tag);
+    return acc;
+  }, {} as Record<string, PostTag[]>);
+
+  // Combine posts with their tags
+  return posts.map(post => ({
+    ...post,
+    tags: tagsByPostId[post.id] || [],
+  }));
+};
+
 export const getPostImages = async (postId: string): Promise<PostImage[]> => {
   const { data, error } = await supabase
     .from('post_images')
@@ -106,6 +150,119 @@ export const getPostImages = async (postId: string): Promise<PostImage[]> => {
   }
 
   return data || [];
+};
+
+export interface FeedPost {
+  post: Post;
+  user: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+  tags: PostTag[];
+  images: string[];
+  likes_count: number;
+  is_liked: boolean;
+  is_saved: boolean;
+}
+
+export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
+  // Get user's friends using RLS-enabled query
+  const { data: friendships, error: friendsError } = await supabase
+    .from('friendships')
+    .select('user_id, friend_id')
+    .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+    .eq('status', 'accepted');
+
+  if (friendsError) {
+    console.error('Error fetching friendships:', friendsError);
+    return [];
+  }
+
+  // Extract friend IDs
+  const friendIds = (friendships || [])
+    .map((f) => (f.user_id === userId ? f.friend_id : f.user_id))
+    .filter(Boolean);
+
+  if (friendIds.length === 0) {
+    return [];
+  }
+
+  // Get posts from friends
+  const { data: posts, error: postsError } = await supabase
+    .from('posts')
+    .select('*')
+    .in('user_id', friendIds)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (postsError || !posts || posts.length === 0) {
+    console.error('Error fetching friends posts:', postsError);
+    return [];
+  }
+
+  // Get all related data in parallel
+  const postIds = posts.map(p => p.id);
+  
+  const [tagsData, imagesData, likesData, savesData, profilesData] = await Promise.all([
+    // Get all tags
+    supabase.from('post_tags').select('*').in('post_id', postIds),
+    // Get all images
+    supabase.from('post_images').select('*').in('post_id', postIds).order('created_at', { ascending: true }),
+    // Get user's likes
+    supabase.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', postIds),
+    // Get user's saves
+    supabase.from('post_saves').select('post_id').eq('user_id', userId).in('post_id', postIds),
+    // Get all user profiles
+    supabase.from('profiles').select('id, username, avatar_url').in('id', friendIds),
+  ]);
+
+  // Create lookup maps
+  const tagsByPostId = (tagsData.data || []).reduce((acc, tag) => {
+    if (!acc[tag.post_id]) acc[tag.post_id] = [];
+    acc[tag.post_id].push(tag);
+    return acc;
+  }, {} as Record<string, PostTag[]>);
+
+  const imagesByPostId = (imagesData.data || []).reduce((acc, img) => {
+    if (!acc[img.post_id]) acc[img.post_id] = [];
+    acc[img.post_id].push(img.image_url);
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  const likedPostIds = new Set((likesData.data || []).map(l => l.post_id));
+  const savedPostIds = new Set((savesData.data || []).map(s => s.post_id));
+
+  const profilesById = (profilesData.data || []).reduce((acc, profile) => {
+    acc[profile.id] = profile;
+    return acc;
+  }, {} as Record<string, { id: string; username: string; avatar_url: string | null }>);
+
+  // Get like counts for all posts
+  const { data: likeCounts } = await supabase
+    .from('post_likes')
+    .select('post_id')
+    .in('post_id', postIds);
+
+  const likeCountsByPostId = (likeCounts || []).reduce((acc, like) => {
+    acc[like.post_id] = (acc[like.post_id] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Combine everything
+  return posts.map(post => ({
+    post,
+    user: profilesById[post.user_id] || {
+      id: post.user_id,
+      username: 'Unknown',
+      avatar_url: null,
+    },
+    tags: tagsByPostId[post.id] || [],
+    images: imagesByPostId[post.id] || [],
+    likes_count: likeCountsByPostId[post.id] || 0,
+    is_liked: likedPostIds.has(post.id),
+    is_saved: savedPostIds.has(post.id),
+  }));
 };
 
 export const createPost = async (
@@ -418,6 +575,82 @@ export const getSavedPosts = async (userId: string): Promise<Post[]> => {
 
   // Extract posts from the joined data
   return (data || []).map((save: any) => save.posts).filter(Boolean);
+};
+
+export interface SavedPostWithDetails {
+  post: Post;
+  tags: PostTag[];
+  created_by: {
+    username: string;
+    avatar_url: string | null;
+  };
+  also_recommended_by: Array<{
+    username: string;
+    avatar_url: string | null;
+  }>;
+}
+
+export const getSavedPostsWithDetails = async (userId: string): Promise<SavedPostWithDetails[]> => {
+  // Get saved posts
+  const savedPosts = await getSavedPosts(userId);
+  
+  if (savedPosts.length === 0) {
+    return [];
+  }
+
+  const postIds = savedPosts.map(p => p.id);
+
+  // Get tags and user info in parallel
+  const [tagsData, profilesData] = await Promise.all([
+    supabase.from('post_tags').select('*').in('post_id', postIds),
+    supabase.from('profiles').select('id, username, avatar_url').in('id', savedPosts.map(p => p.user_id)),
+  ]);
+
+  // Create lookup maps
+  const tagsByPostId = (tagsData.data || []).reduce((acc, tag) => {
+    if (!acc[tag.post_id]) acc[tag.post_id] = [];
+    acc[tag.post_id].push(tag);
+    return acc;
+  }, {} as Record<string, PostTag[]>);
+
+  const profilesById = (profilesData.data || []).reduce((acc, profile) => {
+    acc[profile.id] = profile;
+    return acc;
+  }, {} as Record<string, { username: string; avatar_url: string | null }>);
+
+  // For each location, get all users who also pinned it
+  const results: SavedPostWithDetails[] = [];
+  
+  for (const post of savedPosts) {
+    // Get all posts for this location (to find who else recommended it)
+    const { data: otherPosts } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('location_name', post.location_name)
+      .neq('user_id', post.user_id);
+
+    const otherUserIds = Array.from(new Set((otherPosts || []).map(p => p.user_id)));
+    
+    let alsoRecommendedBy: Array<{ username: string; avatar_url: string | null }> = [];
+    
+    if (otherUserIds.length > 0) {
+      const { data: otherProfiles } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .in('id', otherUserIds);
+      
+      alsoRecommendedBy = otherProfiles || [];
+    }
+
+    results.push({
+      post,
+      tags: tagsByPostId[post.id] || [],
+      created_by: profilesById[post.user_id] || { username: 'Unknown', avatar_url: null },
+      also_recommended_by: alsoRecommendedBy,
+    });
+  }
+
+  return results;
 };
 
 export const getUserSavedPostIds = async (userId: string): Promise<string[]> => {

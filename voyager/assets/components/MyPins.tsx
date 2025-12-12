@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Platform,
   Image,
+  SafeAreaView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -19,20 +20,19 @@ import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import {
-  getPostsWithTags,
+  getSavedPostsWithDetails,
+  SavedPostWithDetails,
   deletePost,
   updatePost,
   updatePostTags,
   getPostImages,
   uploadPostImage,
-  PostWithTags,
 } from "../../lib/supabase/posts";
-import { DUMMY_PINS } from "../../lib/data/dummyPins";
 
 // max photos per pin
 const MAX_PHOTOS = 5;
 
-// type for pins displayed (works with both real and dummy)
+// type for pins displayed
 type DisplayPin = {
   id: string;
   location_name: string;
@@ -42,20 +42,21 @@ type DisplayPin = {
   tags: { tag_name: string }[];
   created_at: string;
   user_id: string;
-  created_by?: { username: string };
-  also_recommended_by?: { username: string }[];
+  created_by?: { username: string; avatar_url?: string | null };
+  also_recommended_by?: Array<{ username: string; avatar_url?: string | null }>;
 };
 
-const MyPins: React.FC = () => {
+interface MyPinsProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
 
-  // toggle between feed and my pins - default to feed
-  const [activeTab, setActiveTab] = useState<"feed" | "my-pins">("feed");
-
   // data states
-  const [myPins, setMyPins] = useState<PostWithTags[]>([]);
-  const [allPins, setAllPins] = useState<PostWithTags[]>([]); // all real pins for feed
+  const [myPins, setMyPins] = useState<SavedPostWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
 
   // filter states
@@ -71,40 +72,26 @@ const MyPins: React.FC = () => {
   const [editNewPhotos, setEditNewPhotos] = useState<string[]>([]); // new photos to upload (local URIs)
   const [saving, setSaving] = useState(false);
 
-  // fetch user's pins
+  // fetch user's saved pins
   const fetchMyPins = async () => {
     if (!user) return;
     try {
-      const posts = await getPostsWithTags(user.id);
-      setMyPins(posts);
+      const savedPosts = await getSavedPostsWithDetails(user.id);
+      setMyPins(savedPosts);
     } catch (error) {
       console.error("Error fetching my pins:", error);
     }
   };
 
-  // fetch all pins for the feed
-  const fetchAllPins = async () => {
-    try {
-      const posts = await getPostsWithTags();
-      setAllPins(posts);
-    } catch (error) {
-      console.error("Error fetching all pins:", error);
-    }
-  };
-
-  // fetch pins on mount and when tab changes
+  // fetch pins on mount
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      if (activeTab === "my-pins") {
-        await fetchMyPins();
-      } else {
-        await fetchAllPins();
-      }
+      await fetchMyPins();
       setLoading(false);
     };
     fetchData();
-  }, [activeTab, user]);
+  }, [user]);
 
   const toggleTag = (tagName: string) => {
     setSelectedTags((prev) =>
@@ -114,12 +101,19 @@ const MyPins: React.FC = () => {
     );
   };
 
-  // get current pins based on active tab
-  // feed shows all real pins + dummy pins, my pins shows only user's pins
-  const currentPins: DisplayPin[] =
-    activeTab === "my-pins"
-      ? myPins
-      : [...allPins, ...(DUMMY_PINS as DisplayPin[])];
+  // get current pins - convert SavedPostWithDetails to DisplayPin format
+  const currentPins: DisplayPin[] = myPins.map((item) => ({
+    id: item.post.id,
+    location_name: item.post.location_name,
+    notes: item.post.notes,
+    latitude: item.post.latitude,
+    longitude: item.post.longitude,
+    tags: item.tags,
+    created_at: item.post.created_at,
+    user_id: item.post.user_id,
+    created_by: item.created_by,
+    also_recommended_by: item.also_recommended_by,
+  }));
 
   // apply filters
   const filteredPins = currentPins.filter((pin) => {
@@ -156,7 +150,7 @@ const MyPins: React.FC = () => {
             if (!user) return;
             const success = await deletePost(pin.id, user.id);
             if (success) {
-              setMyPins((prev) => prev.filter((p) => p.id !== pin.id));
+              setMyPins((prev) => prev.filter((p) => p.post.id !== pin.id));
               Alert.alert("Deleted", "Pin has been removed.");
             } else {
               Alert.alert("Error", "Could not delete pin. Please try again.");
@@ -429,23 +423,30 @@ const MyPins: React.FC = () => {
             >
               {item.also_recommended_by.map((friend, index) => (
                 <View key={index} style={styles.friendItem}>
-                  <View
-                    style={[
-                      styles.friendAvatar,
-                      {
-                        backgroundColor:
-                          themeMode === "light" ? theme.hover : "#e5e7eb",
-                        borderColor:
-                          themeMode === "light" ? theme.border : "#d1d5db",
-                      },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name="person"
-                      size={16}
-                      color={themeMode === "light" ? theme.text : "#1f2937"}
+                  {friend.avatar_url ? (
+                    <Image
+                      source={{ uri: friend.avatar_url }}
+                      style={styles.friendAvatarImage}
                     />
-                  </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.friendAvatar,
+                        {
+                          backgroundColor:
+                            themeMode === "light" ? theme.hover : "#e5e7eb",
+                          borderColor:
+                            themeMode === "light" ? theme.border : "#d1d5db",
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="person"
+                        size={16}
+                        color={themeMode === "light" ? theme.text : "#1f2937"}
+                      />
+                    </View>
+                  )}
                   <Text
                     style={[
                       styles.friendUsername,
@@ -465,482 +466,490 @@ const MyPins: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Header Toggle - Feed first, My Pins second */}
-      <View style={styles.headerToggle}>
-        <TouchableOpacity
-          style={[
-            styles.toggleBtn,
-            activeTab === "feed" && [
-              styles.toggleBtnActive,
-              { backgroundColor: theme.accent },
-            ],
-          ]}
-          onPress={() => setActiveTab("feed")}
-        >
-          <Text
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+    >
+      <SafeAreaView
+        style={[styles.modalContainer, { backgroundColor: theme.bg }]}
+      >
+        {/* Drag handle indicator */}
+        <View style={styles.dragHandleContainer}>
+          <View
             style={[
-              styles.toggleText,
-              { color: activeTab === "feed" ? theme.accentText : theme.text },
+              styles.dragHandle,
+              { backgroundColor: theme.textSecondary },
             ]}
-          >
-            Feed
+          />
+        </View>
+
+        {/* Header with close button */}
+        <View style={[styles.header, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <MaterialIcons name="close" size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            My Pins
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.toggleBtn,
-            activeTab === "my-pins" && [
-              styles.toggleBtnActive,
-              { backgroundColor: theme.accent },
-            ],
-          ]}
-          onPress={() => setActiveTab("my-pins")}
-        >
-          <Text
+          <View style={styles.headerSpacer} />
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View
             style={[
-              styles.toggleText,
+              styles.searchInputContainer,
               {
-                color: activeTab === "my-pins" ? theme.accentText : theme.text,
+                backgroundColor: themeMode === "light" ? "#ffffff" : "#1a1a1a",
               },
             ]}
           >
-            My Pins
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View
-          style={[
-            styles.searchInputContainer,
-            {
-              backgroundColor: themeMode === "light" ? "#ffffff" : "#1a1a1a",
-            },
-          ]}
-        >
-          <MaterialIcons
-            name="search"
-            size={24}
-            color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={[
-              styles.searchInput,
-              { color: themeMode === "light" ? "#1f2937" : "#f3f4f6" },
-            ]}
-            placeholder={
-              activeTab === "my-pins" ? "Search your pins..." : "Search feed..."
-            }
-            placeholderTextColor={themeMode === "light" ? "#9ca3af" : "#6b7280"}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoFocus={false}
-          />
-          {searchQuery && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              style={styles.clearButton}
-            >
-              <MaterialIcons
-                name="close"
-                size={20}
-                color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Tag Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tagsContainer}
-        contentContainerStyle={styles.tagsContent}
-      >
-        {VALID_TAGS.map((tag) => {
-          const isSelected = selectedTags.includes(tag);
-          return (
-            <TouchableOpacity
-              key={tag}
-              onPress={() => toggleTag(tag)}
+            <MaterialIcons
+              name="search"
+              size={24}
+              color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+              style={styles.searchIcon}
+            />
+            <TextInput
               style={[
-                styles.tagChip,
-                {
-                  backgroundColor: isSelected
-                    ? theme.accent
-                    : themeMode === "light"
-                    ? "#ffffff"
-                    : "#2d2d2d",
-                },
+                styles.searchInput,
+                { color: themeMode === "light" ? "#1f2937" : "#f3f4f6" },
               ]}
-            >
-              <Text
-                style={[
-                  styles.tagText,
-                  {
-                    color: isSelected
-                      ? theme.accentText
-                      : themeMode === "light"
-                      ? "#122f60"
-                      : "#f3f4f6",
-                  },
-                ]}
+              placeholder="Search your pins..."
+              placeholderTextColor={
+                themeMode === "light" ? "#9ca3af" : "#6b7280"
+              }
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus={false}
+            />
+            {searchQuery && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                style={styles.clearButton}
               >
-                {tag}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Pins Count */}
-      <View style={styles.listHeader}>
-        <Text style={[styles.listHeaderText, { color: theme.text }]}>
-          {filteredPins.length} {filteredPins.length === 1 ? "Pin" : "Pins"}
-        </Text>
-      </View>
-
-      {/* Loading State */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.text} />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredPins}
-          renderItem={renderPinCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialIcons
-                name="location-off"
-                size={64}
-                color={theme.textSecondary}
-                style={{ opacity: 0.5 }}
-              />
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                No pins found
-              </Text>
-              <Text
-                style={[styles.emptySubtext, { color: theme.textSecondary }]}
-              >
-                {searchQuery || selectedTags.length > 0
-                  ? "Try adjusting your filters"
-                  : activeTab === "my-pins"
-                  ? "Add some pins on the map to see them here!"
-                  : "No pins in the feed yet"}
-              </Text>
-            </View>
-          }
-        />
-      )}
-
-      {/* Edit Modal */}
-      <Modal
-        visible={editingPin !== null}
-        animationType="slide"
-        onRequestClose={() => setEditingPin(null)}
-      >
-        <View style={[styles.editModal, { backgroundColor: theme.bg }]}>
-          {/* Edit Header */}
-          <View style={styles.editHeader}>
-            <Text style={[styles.editTitle, { color: theme.text }]}>
-              Edit Pin
-            </Text>
-            <TouchableOpacity
-              onPress={() => setEditingPin(null)}
-              style={[styles.closeButton, { backgroundColor: theme.hover }]}
-            >
-              <MaterialIcons name="close" size={24} color={theme.text} />
-            </TouchableOpacity>
+                <MaterialIcons
+                  name="close"
+                  size={20}
+                  color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+                />
+              </TouchableOpacity>
+            )}
           </View>
+        </View>
 
-          <ScrollView style={styles.editContent}>
-            {/* Location Name */}
-            <View style={styles.editSection}>
-              <Text style={[styles.editLabel, { color: theme.text }]}>
-                Location Name *
-              </Text>
-              <TextInput
+        {/* Tag Filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tagsContainer}
+          contentContainerStyle={styles.tagsContent}
+        >
+          {VALID_TAGS.map((tag) => {
+            const isSelected = selectedTags.includes(tag);
+            return (
+              <TouchableOpacity
+                key={tag}
+                onPress={() => toggleTag(tag)}
                 style={[
-                  styles.editInput,
+                  styles.tagChip,
                   {
-                    backgroundColor:
-                      themeMode === "dark" ? theme.border : theme.accent,
-                    color: theme.text,
-                    borderColor: theme.border,
+                    backgroundColor: isSelected
+                      ? theme.accent
+                      : themeMode === "light"
+                      ? "#ffffff"
+                      : "#2d2d2d",
                   },
                 ]}
-                value={editLocationName}
-                onChangeText={setEditLocationName}
-                placeholder="Enter location name"
-                placeholderTextColor={theme.textSecondary}
-              />
-            </View>
-
-            {/* Notes */}
-            <View style={styles.editSection}>
-              <Text style={[styles.editLabel, { color: theme.text }]}>
-                Notes
-              </Text>
-              <TextInput
-                style={[
-                  styles.editTextArea,
-                  {
-                    backgroundColor:
-                      themeMode === "dark" ? theme.border : theme.accent,
-                    color: theme.text,
-                    borderColor: theme.border,
-                  },
-                ]}
-                value={editNotes}
-                onChangeText={setEditNotes}
-                placeholder="Your notes..."
-                placeholderTextColor={theme.textSecondary}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
-
-            {/* Photos */}
-            <View style={styles.editSection}>
-              <Text style={[styles.editLabel, { color: theme.text }]}>
-                Photos ({editExistingPhotos.length + editNewPhotos.length}/
-                {MAX_PHOTOS})
-              </Text>
-
-              {/* photo buttons */}
-              {editExistingPhotos.length + editNewPhotos.length <
-                MAX_PHOTOS && (
-                <View style={styles.editPhotoButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.editPhotoButton,
-                      {
-                        backgroundColor: theme.hover,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={pickEditPhotos}
-                  >
-                    <MaterialIcons
-                      name="photo-library"
-                      size={20}
-                      color={theme.text}
-                    />
-                    <Text
-                      style={[
-                        styles.editPhotoButtonText,
-                        { color: theme.text },
-                      ]}
-                    >
-                      Choose
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.editPhotoButton,
-                      {
-                        backgroundColor: theme.hover,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={takeEditPhoto}
-                  >
-                    <MaterialIcons
-                      name="camera-alt"
-                      size={20}
-                      color={theme.text}
-                    />
-                    <Text
-                      style={[
-                        styles.editPhotoButtonText,
-                        { color: theme.text },
-                      ]}
-                    >
-                      Camera
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* existing photos */}
-              {editExistingPhotos.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.editPhotoScroll}
+              >
+                <Text
+                  style={[
+                    styles.tagText,
+                    {
+                      color: isSelected
+                        ? theme.accentText
+                        : themeMode === "light"
+                        ? "#122f60"
+                        : "#f3f4f6",
+                    },
+                  ]}
                 >
-                  {editExistingPhotos.map((uri, index) => (
-                    <View
-                      key={`existing-${index}`}
-                      style={styles.editPhotoContainer}
-                    >
-                      <Image source={{ uri }} style={styles.editPhotoPreview} />
-                      <TouchableOpacity
-                        style={[
-                          styles.editRemovePhotoBtn,
-                          { backgroundColor: theme.accent },
-                        ]}
-                        onPress={() => removeExistingPhoto(index)}
-                      >
-                        <MaterialIcons
-                          name="close"
-                          size={14}
-                          color={theme.accentText}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
+                  {tag}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-              {/* new photos */}
-              {editNewPhotos.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.editPhotoScroll}
+        {/* Pins Count */}
+        <View style={styles.listHeader}>
+          <Text style={[styles.listHeaderText, { color: theme.text }]}>
+            {filteredPins.length} {filteredPins.length === 1 ? "Pin" : "Pins"}
+          </Text>
+        </View>
+
+        {/* Loading State */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.text} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredPins}
+            renderItem={renderPinCard}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <MaterialIcons
+                  name="location-off"
+                  size={64}
+                  color={theme.textSecondary}
+                  style={{ opacity: 0.5 }}
+                />
+                <Text style={[styles.emptyText, { color: theme.text }]}>
+                  No pins found
+                </Text>
+                <Text
+                  style={[styles.emptySubtext, { color: theme.textSecondary }]}
                 >
-                  {editNewPhotos.map((uri, index) => (
-                    <View
-                      key={`new-${index}`}
-                      style={styles.editPhotoContainer}
-                    >
-                      <Image source={{ uri }} style={styles.editPhotoPreview} />
-                      <View
-                        style={[
-                          styles.newPhotoBadge,
-                          { backgroundColor: theme.accent },
-                        ]}
-                      >
-                        <Text style={{ color: theme.accentText, fontSize: 10 }}>
-                          NEW
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[
-                          styles.editRemovePhotoBtn,
-                          { backgroundColor: theme.accent },
-                        ]}
-                        onPress={() => removeNewPhoto(index)}
-                      >
-                        <MaterialIcons
-                          name="close"
-                          size={14}
-                          color={theme.accentText}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
+                  {searchQuery || selectedTags.length > 0
+                    ? "Try adjusting your filters"
+                    : "Add some pins on the map to see them here!"}
+                </Text>
+              </View>
+            }
+          />
+        )}
+
+        {/* Edit Modal */}
+        <Modal
+          visible={editingPin !== null}
+          animationType="slide"
+          onRequestClose={() => setEditingPin(null)}
+        >
+          <View style={[styles.editModal, { backgroundColor: theme.bg }]}>
+            {/* Edit Header */}
+            <View style={styles.editHeader}>
+              <Text style={[styles.editTitle, { color: theme.text }]}>
+                Edit Pin
+              </Text>
+              <TouchableOpacity
+                onPress={() => setEditingPin(null)}
+                style={[styles.closeButton, { backgroundColor: theme.hover }]}
+              >
+                <MaterialIcons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
             </View>
 
-            {/* Tags */}
-            <View style={styles.editSection}>
-              <Text style={[styles.editLabel, { color: theme.text }]}>
-                Tags * (select at least one)
-              </Text>
-              <View style={styles.editTagsGrid}>
-                {VALID_TAGS.map((tag) => {
-                  const isSelected = editTags.includes(tag);
-                  return (
+            <ScrollView style={styles.editContent}>
+              {/* Location Name */}
+              <View style={styles.editSection}>
+                <Text style={[styles.editLabel, { color: theme.text }]}>
+                  Location Name *
+                </Text>
+                <TextInput
+                  style={[
+                    styles.editInput,
+                    {
+                      backgroundColor:
+                        themeMode === "dark" ? theme.border : theme.accent,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                  value={editLocationName}
+                  onChangeText={setEditLocationName}
+                  placeholder="Enter location name"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+
+              {/* Notes */}
+              <View style={styles.editSection}>
+                <Text style={[styles.editLabel, { color: theme.text }]}>
+                  Notes
+                </Text>
+                <TextInput
+                  style={[
+                    styles.editTextArea,
+                    {
+                      backgroundColor:
+                        themeMode === "dark" ? theme.border : theme.accent,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                  value={editNotes}
+                  onChangeText={setEditNotes}
+                  placeholder="Your notes..."
+                  placeholderTextColor={theme.textSecondary}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Photos */}
+              <View style={styles.editSection}>
+                <Text style={[styles.editLabel, { color: theme.text }]}>
+                  Photos ({editExistingPhotos.length + editNewPhotos.length}/
+                  {MAX_PHOTOS})
+                </Text>
+
+                {/* photo buttons */}
+                {editExistingPhotos.length + editNewPhotos.length <
+                  MAX_PHOTOS && (
+                  <View style={styles.editPhotoButtons}>
                     <TouchableOpacity
-                      key={tag}
-                      onPress={() => toggleEditTag(tag)}
                       style={[
-                        styles.editTagChip,
+                        styles.editPhotoButton,
                         {
-                          backgroundColor: isSelected
-                            ? theme.accent
-                            : theme.hover,
-                          borderColor: isSelected ? theme.accent : theme.border,
+                          backgroundColor: theme.hover,
+                          borderColor: theme.border,
                         },
                       ]}
+                      onPress={pickEditPhotos}
                     >
+                      <MaterialIcons
+                        name="photo-library"
+                        size={20}
+                        color={theme.text}
+                      />
                       <Text
                         style={[
-                          styles.editTagText,
-                          { color: isSelected ? theme.accentText : theme.text },
+                          styles.editPhotoButtonText,
+                          { color: theme.text },
                         ]}
                       >
-                        {tag}
+                        Choose
                       </Text>
-                      {isSelected && (
-                        <MaterialIcons
-                          name="check"
-                          size={16}
-                          color={theme.accentText}
-                          style={{ marginLeft: 4 }}
-                        />
-                      )}
                     </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.editPhotoButton,
+                        {
+                          backgroundColor: theme.hover,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={takeEditPhoto}
+                    >
+                      <MaterialIcons
+                        name="camera-alt"
+                        size={20}
+                        color={theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.editPhotoButtonText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        Camera
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
-            {/* Save Button */}
-            <TouchableOpacity
-              style={[
-                styles.saveButton,
-                { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 },
-              ]}
-              onPress={handleSaveEdit}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color={theme.accentText} />
-              ) : (
-                <Text
-                  style={[styles.saveButtonText, { color: theme.accentText }]}
-                >
-                  Save Changes
+                {/* existing photos */}
+                {editExistingPhotos.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.editPhotoScroll}
+                  >
+                    {editExistingPhotos.map((uri, index) => (
+                      <View
+                        key={`existing-${index}`}
+                        style={styles.editPhotoContainer}
+                      >
+                        <Image
+                          source={{ uri }}
+                          style={styles.editPhotoPreview}
+                        />
+                        <TouchableOpacity
+                          style={[
+                            styles.editRemovePhotoBtn,
+                            { backgroundColor: theme.accent },
+                          ]}
+                          onPress={() => removeExistingPhoto(index)}
+                        >
+                          <MaterialIcons
+                            name="close"
+                            size={14}
+                            color={theme.accentText}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {/* new photos */}
+                {editNewPhotos.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.editPhotoScroll}
+                  >
+                    {editNewPhotos.map((uri, index) => (
+                      <View
+                        key={`new-${index}`}
+                        style={styles.editPhotoContainer}
+                      >
+                        <Image
+                          source={{ uri }}
+                          style={styles.editPhotoPreview}
+                        />
+                        <View
+                          style={[
+                            styles.newPhotoBadge,
+                            { backgroundColor: theme.accent },
+                          ]}
+                        >
+                          <Text
+                            style={{ color: theme.accentText, fontSize: 10 }}
+                          >
+                            NEW
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.editRemovePhotoBtn,
+                            { backgroundColor: theme.accent },
+                          ]}
+                          onPress={() => removeNewPhoto(index)}
+                        >
+                          <MaterialIcons
+                            name="close"
+                            size={14}
+                            color={theme.accentText}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* Tags */}
+              <View style={styles.editSection}>
+                <Text style={[styles.editLabel, { color: theme.text }]}>
+                  Tags * (select at least one)
                 </Text>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Modal>
-    </View>
+                <View style={styles.editTagsGrid}>
+                  {VALID_TAGS.map((tag) => {
+                    const isSelected = editTags.includes(tag);
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        onPress={() => toggleEditTag(tag)}
+                        style={[
+                          styles.editTagChip,
+                          {
+                            backgroundColor: isSelected
+                              ? theme.accent
+                              : theme.hover,
+                            borderColor: isSelected
+                              ? theme.accent
+                              : theme.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.editTagText,
+                            {
+                              color: isSelected ? theme.accentText : theme.text,
+                            },
+                          ]}
+                        >
+                          {tag}
+                        </Text>
+                        {isSelected && (
+                          <MaterialIcons
+                            name="check"
+                            size={16}
+                            color={theme.accentText}
+                            style={{ marginLeft: 4 }}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Save Button */}
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 },
+                ]}
+                onPress={handleSaveEdit}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color={theme.accentText} />
+                ) : (
+                  <Text
+                    style={[styles.saveButtonText, { color: theme.accentText }]}
+                  >
+                    Save Changes
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </Modal>
+      </SafeAreaView>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.3,
+  },
   container: {
     flex: 1,
   },
-  // header toggle
-  headerToggle: {
+  // header with back button
+  header: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    gap: 10,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 5,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
   },
-  toggleBtnActive: {
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+  backButton: {
+    padding: 4,
   },
-  toggleText: {
-    fontSize: 16,
-    fontWeight: "600",
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
+  },
+  headerSpacer: {
+    width: 32,
   },
   // search
   searchContainer: {
@@ -1111,6 +1120,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
+    marginBottom: 4,
+  },
+  friendAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginBottom: 4,
   },
   friendUsername: {

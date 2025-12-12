@@ -158,3 +158,55 @@ export const searchUsers = async (
 
   return data || [];
 };
+
+export const addFriendDirectly = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  // Check if friendship already exists
+  const { data: existing } = await supabase
+    .from('friendships')
+    .select('*')
+    .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`)
+    .maybeSingle();
+
+  if (existing) {
+    console.log('Friendship already exists');
+    return false;
+  }
+
+  // Add friendship with accepted status (no request needed)
+  const { error } = await supabase
+    .from('friendships')
+    .insert({
+      user_id: userId,
+      friend_id: friendId,
+      status: 'accepted',
+    });
+
+  if (error) {
+    console.error('Error adding friend:', error);
+    return false;
+  }
+
+  return true;
+};
+
+export const checkFriendship = async (
+  userId: string,
+  friendId: string
+): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('friendships')
+    .select('*')
+    .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`)
+    .eq('status', 'accepted')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking friendship:', error);
+    return false;
+  }
+
+  return !!data;
+};

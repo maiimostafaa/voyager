@@ -13,11 +13,13 @@ import {
 import MapView, { Marker, Region } from "react-native-maps";
 import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
-import { getPostsWithTags, PostWithTags } from "../../lib/supabase/posts";
+import { getPostsWithTags, PostWithTags, getPostsByLocation } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
 import NewPin from "./NewPin";
+import LocationCorkboard from "./LocationCorkboard";
 import { DUMMY_PINS } from "../../lib/data/dummyPins";
+import { supabase } from "../../lib/supabase";
 
 const { width, height } = Dimensions.get("window");
 
@@ -54,7 +56,13 @@ const Map: React.FC = () => {
   const [filteredPosts, setFilteredPosts] = useState<PostWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedPost, setSelectedPost] = useState<PostWithTags | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [locationPosts, setLocationPosts] = useState<Array<{
+    post: PostWithTags;
+    username: string;
+    avatar_url: string | null;
+  }>>([]);
+  const [loadingLocation, setLoadingLocation] = useState(false);
   const [showNewPin, setShowNewPin] = useState(false);
 
   // search state
@@ -65,7 +73,7 @@ const Map: React.FC = () => {
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // selected location from search
-  const [selectedLocation, setSelectedLocation] =
+  const [selectedSearchLocation, setSelectedSearchLocation] =
     useState<SelectedLocation | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
@@ -178,7 +186,7 @@ const Map: React.FC = () => {
     const lon = parseFloat(result.lon);
     const shortName = result.display_name.split(",")[0];
 
-    setSelectedLocation({
+    setSelectedSearchLocation({
       name: shortName,
       fullName: result.display_name,
       latitude: lat,
@@ -213,11 +221,11 @@ const Map: React.FC = () => {
 
   // handle creating a pin from search result
   const handleCreatePinFromSearch = () => {
-    if (!selectedLocation) return;
+    if (!selectedSearchLocation) return;
     setPrefillLocation({
-      name: selectedLocation.name,
-      latitude: selectedLocation.latitude,
-      longitude: selectedLocation.longitude,
+      name: selectedSearchLocation.name,
+      latitude: selectedSearchLocation.latitude,
+      longitude: selectedSearchLocation.longitude,
     });
     setShowLocationModal(false);
     setShowNewPin(true);
@@ -231,8 +239,43 @@ const Map: React.FC = () => {
     );
   };
 
-  const handleMarkerPress = (post: PostWithTags) => {
-    setSelectedPost(post);
+  const handleMarkerPress = async (post: PostWithTags) => {
+    console.log('Marker pressed for location:', post.location_name);
+    setLoadingLocation(true);
+    setSelectedLocation(post.location_name);
+    
+    try {
+      // Fetch all posts for this location
+      const postsForLocation = await getPostsByLocation(post.location_name);
+      console.log('Found posts for location:', postsForLocation.length);
+      
+      // Fetch user profiles for each post
+      const userIds = postsForLocation.map(p => p.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+      console.log('Found profiles:', profiles?.length);
+
+      const profileMap = (profiles || []).reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {} as Record<string, { username: string; avatar_url: string | null }>);
+
+      const postsWithUsers = postsForLocation.map(post => ({
+        post,
+        username: profileMap[post.user_id]?.username || 'Unknown',
+        avatar_url: profileMap[post.user_id]?.avatar_url || null,
+      }));
+
+      console.log('Posts with users:', postsWithUsers.length);
+      setLocationPosts(postsWithUsers);
+    } catch (error) {
+      console.error('Error loading location posts:', error);
+    } finally {
+      setLoadingLocation(false);
+    }
   };
 
   const clearSearch = () => {
@@ -250,11 +293,11 @@ const Map: React.FC = () => {
   }
 
   // get nearby pins for selected location
-  const nearbyPins = selectedLocation
-    ? findNearbyPins(selectedLocation.latitude, selectedLocation.longitude)
+  const nearbyPins = selectedSearchLocation
+    ? findNearbyPins(selectedSearchLocation.latitude, selectedSearchLocation.longitude)
     : [];
-  const userAlreadyPinned = selectedLocation
-    ? userHasPinned(selectedLocation.latitude, selectedLocation.longitude)
+  const userAlreadyPinned = selectedSearchLocation
+    ? userHasPinned(selectedSearchLocation.latitude, selectedSearchLocation.longitude)
     : false;
 
   return (
@@ -408,7 +451,7 @@ const Map: React.FC = () => {
           <View style={[styles.modalContent, { backgroundColor: theme.bg }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
-                {selectedLocation?.name}
+                {selectedSearchLocation?.name}
               </Text>
               <TouchableOpacity
                 onPress={() => setShowLocationModal(false)}
@@ -418,7 +461,7 @@ const Map: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {selectedLocation && (
+            {selectedSearchLocation && (
               <View style={styles.locationModalBody}>
                 <Text
                   style={[
@@ -427,7 +470,7 @@ const Map: React.FC = () => {
                   ]}
                   numberOfLines={3}
                 >
-                  {selectedLocation.fullName}
+                  {selectedSearchLocation.fullName}
                 </Text>
 
                 {/* Show if pinned by others */}
@@ -544,7 +587,7 @@ const Map: React.FC = () => {
                     onPress={() => {
                       setShowLocationModal(false);
                       if (nearbyPins[0]) {
-                        setSelectedPost(nearbyPins[0]);
+                        handleMarkerPress(nearbyPins[0]);
                       }
                     }}
                   >
@@ -564,83 +607,37 @@ const Map: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Post Details Modal */}
+      {/* Location Corkboard Modal */}
       <Modal
-        visible={selectedPost !== null}
-        transparent
+        visible={selectedLocation !== null}
         animationType="slide"
-        onRequestClose={() => setSelectedPost(null)}
+        onRequestClose={() => {
+          setSelectedLocation(null);
+          setLocationPosts([]);
+        }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.bg }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>
-                {selectedPost?.location_name}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setSelectedPost(null)}
-                style={[styles.closeButton, { backgroundColor: theme.hover }]}
-              >
-                <MaterialIcons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
-
-            {selectedPost && (
-              <View style={styles.modalBody}>
-                {selectedPost.notes && (
-                  <Text style={[styles.modalNotes, { color: theme.text }]}>
-                    {selectedPost.notes}
-                  </Text>
-                )}
-
-                {selectedPost.tags.length > 0 && (
-                  <View style={styles.modalTags}>
-                    <Text
-                      style={[
-                        styles.modalTagsLabel,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      Tags:
-                    </Text>
-                    <View style={styles.modalTagsList}>
-                      {selectedPost.tags.map((tag) => (
-                        <View
-                          key={tag.tag_name}
-                          style={[
-                            styles.modalTagChip,
-                            { backgroundColor: theme.accent },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.modalTagText,
-                              { color: theme.accentText },
-                            ]}
-                          >
-                            {tag.tag_name}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.modalCoordinates}>
-                  <Text
-                    style={[
-                      styles.modalCoordinatesText,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    📍 {selectedPost.latitude.toFixed(4)},{" "}
-                    {selectedPost.longitude.toFixed(4)}
-                  </Text>
-                </View>
-              </View>
-            )}
+        {loadingLocation ? (
+          <View style={[styles.loadingContainer, { backgroundColor: theme.bg }]}>
+            <ActivityIndicator size="large" color={theme.accent} />
+            <Text style={[styles.loadingText, { color: theme.text }]}>
+              Loading recommendations...
+            </Text>
           </View>
-        </View>
+        ) : selectedLocation ? (
+          <LocationCorkboard
+            locationName={selectedLocation}
+            posts={locationPosts.map(item => ({
+              post: item.post,
+              tags: item.post.tags,
+              username: item.username,
+              avatar_url: item.avatar_url,
+            }))}
+            onClose={() => {
+              setSelectedLocation(null);
+              setLocationPosts([]);
+            }}
+          />
+        ) : null}
       </Modal>
 
       {/* New Pin Modal */}
@@ -873,6 +870,17 @@ const styles = StyleSheet.create({
   },
   viewPinsText: {
     fontSize: 14,
+    fontWeight: "500",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
     fontWeight: "500",
   },
 });

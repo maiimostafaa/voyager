@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from './LoginScreen';
 import ProfileScreen from './ProfileScreen';
 import EditProfileScreen from './EditProfileScreen';
+import MyPins from './MyPins';
 
 type ViewMode = 'profile' | 'edit';
 
@@ -13,6 +14,7 @@ const AuthScreen: React.FC = () => {
   const { theme } = useTheme();
   const { user, profile, loading, signOut } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('profile');
+  const [showMyPins, setShowMyPins] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -58,6 +60,13 @@ const AuthScreen: React.FC = () => {
       <ProfileScreen 
         onEditPress={() => setViewMode('edit')}
         onSignOut={handleLogout}
+        onMyPinsPress={() => setShowMyPins(true)}
+      />
+      
+      {/* My Pins Modal */}
+      <MyPins 
+        visible={showMyPins}
+        onClose={() => setShowMyPins(false)}
       />
     </View>
   );

@@ -34,9 +34,9 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
       },
       {
         key: "MyPins",
-        label: "Pins",
+        label: "Feed",
         icon: (color) => (
-          <MaterialIcons name="push-pin" size={24} color={color} />
+          <MaterialIcons name="article" size={24} color={color} />
         ),
       },
       {

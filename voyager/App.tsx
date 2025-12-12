@@ -7,7 +7,7 @@ import { ThemeProvider, useTheme } from './assets/themes/themeMode';
 import { AuthProvider, useAuth } from './assets/contexts/AuthContext';
 import Header from './assets/components/Header';
 import Map from './assets/components/Map';
-import MyPins from './assets/components/MyPins';
+import Feed from './assets/components/Feed';
 import TripPlan from './assets/components/TripPlan';
 import AuthScreen from './assets/components/AuthScreen';
 import Footer from './assets/components/footer';
@@ -25,7 +25,7 @@ const AppContent: React.FC = () => {
       case 'Map':
         return <Map />;
       case 'MyPins':
-        return <MyPins />;
+        return <Feed />;
       case 'TripPlan':
         return <TripPlan />;
       case 'Settings':
