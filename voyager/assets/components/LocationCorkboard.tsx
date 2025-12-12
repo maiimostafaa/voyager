@@ -7,12 +7,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  ImageBackground,
   Dimensions,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
+import { useAuth } from "../contexts/AuthContext";
 import { Post, PostTag } from "../../lib/types/database.types";
+import { savePost, unsavePost, isPostSaved, likePost, unlikePost, isPostLiked } from "../../lib/supabase/posts";
 
 const { width } = Dimensions.get("window");
 
@@ -44,53 +48,185 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
   onClose,
 }) => {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
+  const [savingPostId, setSavingPostId] = useState<string | null>(null);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likingPostId, setLikingPostId] = useState<string | null>(null);
+
+  useEffect(() => {
+    checkSavedPosts();
+    checkLikedPosts();
+  }, [posts, user]);
+
+  const checkSavedPosts = async () => {
+    if (!user?.id || posts.length === 0) return;
+    
+    const savedIds = new Set<string>();
+    for (const item of posts) {
+      const isSaved = await isPostSaved(item.post.id, user.id);
+      if (isSaved) {
+        savedIds.add(item.post.id);
+      }
+    }
+    setSavedPostIds(savedIds);
+  };
+
+  const checkLikedPosts = async () => {
+    if (!user?.id || posts.length === 0) return;
+    
+    const likedIds = new Set<string>();
+    for (const item of posts) {
+      const isLiked = await isPostLiked(item.post.id, user.id);
+      if (isLiked) {
+        likedIds.add(item.post.id);
+      }
+    }
+    setLikedPostIds(likedIds);
+  };
+
+  const handleSaveLocation = async () => {
+    if (!user?.id) {
+      Alert.alert("Error", "You must be logged in to save locations.");
+      return;
+    }
+
+    if (posts.length === 0) {
+      Alert.alert("Error", "No recommendations to save.");
+      return;
+    }
+
+    const firstPost = posts[0].post;
+    const isSaved = savedPostIds.has(firstPost.id);
+
+    setSavingPostId(firstPost.id);
+    try {
+      if (isSaved) {
+        await unsavePost(firstPost.id, user.id);
+        setSavedPostIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(firstPost.id);
+          return newSet;
+        });
+      } else {
+        await savePost(firstPost.id, user.id);
+        setSavedPostIds((prev) => new Set(prev).add(firstPost.id));
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving post:", error);
+      Alert.alert("Error", "Failed to save location.");
+    } finally {
+      setSavingPostId(null);
+    }
+  };
+
+  const handleLikePost = async (postId: string) => {
+    if (!user?.id) {
+      Alert.alert("Error", "You must be logged in to like posts.");
+      return;
+    }
+
+    const isLiked = likedPostIds.has(postId);
+    setLikingPostId(postId);
+
+    // Optimistic update
+    if (isLiked) {
+      setLikedPostIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(postId);
+        return newSet;
+      });
+    } else {
+      setLikedPostIds((prev) => new Set(prev).add(postId));
+    }
+
+    try {
+      if (isLiked) {
+        await unlikePost(postId, user.id);
+      } else {
+        await likePost(postId, user.id);
+      }
+    } catch (error) {
+      console.error("Error liking/unliking post:", error);
+      // Revert on error
+      if (isLiked) {
+        setLikedPostIds((prev) => new Set(prev).add(postId));
+      } else {
+        setLikedPostIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(postId);
+          return newSet;
+        });
+      }
+    } finally {
+      setLikingPostId(null);
+    }
+  };
 
   const getStickyNoteColor = (index: number) => {
     return STICKY_NOTE_COLORS[index % STICKY_NOTE_COLORS.length];
   };
 
+  const isAnySaved = savedPostIds.size > 0;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={24} color={theme.text} />
+    <View style={styles.container}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: theme.bg, borderBottomColor: theme.border }]}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={onClose} style={styles.backButton}>
+              <MaterialIcons name="arrow-back" size={24} color={theme.text} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <MaterialIcons name="place" size={24} color={theme.text} />
+              <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+                {locationName}
+              </Text>
+            </View>
+          </View>
+          {/* Save Button */}
+          <TouchableOpacity
+            onPress={handleSaveLocation}
+            style={styles.saveButton}
+            disabled={savingPostId !== null || posts.length === 0}
+          >
+            {savingPostId !== null ? (
+              <ActivityIndicator size="small" color={theme.text} />
+            ) : (
+              <MaterialIcons
+                name={isAnySaved ? "bookmark" : "bookmark-border"}
+                size={24}
+                color={theme.text}
+              />
+            )}
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <MaterialIcons name="place" size={24} color={theme.text} />
-            <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-              {locationName}
-            </Text>
-          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
-      {/* Subheader */}
-      <View style={styles.subheader}>
-        <Text style={[styles.subheaderText, { color: theme.textSecondary }]}>
-          {posts.length} {posts.length === 1 ? "recommendation" : "recommendations"} from friends
-        </Text>
-      </View>
-
-      {/* Corkboard */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.corkboard, posts.length === 0 && styles.emptyContainer]}
-        showsVerticalScrollIndicator={false}
+      {/* Corkboard Background */}
+      <ImageBackground
+        source={require("../graphics/corkboard.png")}
+        style={styles.backgroundImage}
+        resizeMode="repeat"
       >
-        {posts.length === 0 ? (
-          <View style={styles.emptyState}>
-            <MaterialIcons name="push-pin" size={64} color={theme.textSecondary} />
-            <Text style={[styles.emptyStateText, { color: theme.text }]}>
-              No recommendations yet
-            </Text>
-            <Text style={[styles.emptyStateSubtext, { color: theme.textSecondary }]}>
-              Be the first to recommend this location!
-            </Text>
-          </View>
-        ) : (
-          posts.map((item, index) => {
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.corkboard, posts.length === 0 && styles.emptyContainer]}
+          showsVerticalScrollIndicator={false}
+        >
+          {posts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <MaterialIcons name="push-pin" size={64} color={theme.textSecondary} />
+              <Text style={[styles.emptyStateText, { color: theme.text }]}>
+                No recommendations yet
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { color: theme.textSecondary }]}>
+                Be the first to recommend this location!
+              </Text>
+            </View>
+          ) : (
+            posts.map((item, index) => {
             const rotation = (Math.random() - 0.5) * 6; // Random rotation -3 to 3 degrees
             const noteColor = getStickyNoteColor(index);
 
@@ -152,17 +288,38 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
                   )}
                 </View>
               )}
+
+              {/* Like Button */}
+              <TouchableOpacity
+                style={styles.likeButton}
+                onPress={() => handleLikePost(item.post.id)}
+                disabled={likingPostId === item.post.id}
+              >
+                <MaterialIcons
+                  name={likedPostIds.has(item.post.id) ? "favorite" : "favorite-border"}
+                  size={24}
+                  color="#dc2626"
+                />
+              </TouchableOpacity>
             </View>
-          );
-          })
-        )}
-      </ScrollView>
-    </SafeAreaView>
+            );
+            })
+          )}
+        </ScrollView>
+      </ImageBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: "#8B7355",
+  },
+  safeArea: {
+    // backgroundColor will be set by theme
+  },
+  backgroundImage: {
     flex: 1,
   },
   header: {
@@ -170,8 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   headerLeft: {
@@ -193,28 +349,24 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     flex: 1,
   },
-  subheader: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  subheaderText: {
-    fontSize: 14,
-    fontWeight: "500",
+  saveButton: {
+    padding: 4,
+    marginLeft: 4,
   },
   scrollView: {
     flex: 1,
   },
   corkboard: {
     padding: 20,
-    paddingTop: 10,
+    paddingTop: 30,
+    alignItems: "center",
   },
   stickyNote: {
     width: width - 60,
-    minHeight: 180,
     padding: 16,
     paddingTop: 20,
     borderRadius: 4,
-    marginBottom: 20,
+    marginBottom: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
@@ -325,6 +477,12 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     fontSize: 14,
     textAlign: "center",
+  },
+  likeButton: {
+    position: "absolute",
+    bottom: 12,
+    right: 12,
+    padding: 4,
   },
 });
 

@@ -12,13 +12,18 @@ import {
 } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useTheme } from "../themes/themeMode";
+import { palette } from "../themes/palette";
 import { useAuth } from "../contexts/AuthContext";
-import { getPostsWithTags, PostWithTags, getPostsByLocation } from "../../lib/supabase/posts";
+import {
+  getFriendsPostsWithTags,
+  PostWithTags,
+  getPostsByLocation,
+  getPostsWithTags,
+} from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
 import NewPin from "./NewPin";
 import LocationCorkboard from "./LocationCorkboard";
-import { DUMMY_PINS } from "../../lib/data/dummyPins";
 import { supabase } from "../../lib/supabase";
 
 const { width, height } = Dimensions.get("window");
@@ -64,11 +69,13 @@ const Map: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-  const [locationPosts, setLocationPosts] = useState<Array<{
-    post: PostWithTags;
-    username: string;
-    avatar_url: string | null;
-  }>>([]);
+  const [locationPosts, setLocationPosts] = useState<
+    Array<{
+      post: PostWithTags;
+      username: string;
+      avatar_url: string | null;
+    }>
+  >([]);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [showNewPin, setShowNewPin] = useState(false);
 
@@ -80,10 +87,8 @@ const Map: React.FC = () => {
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [searchContext, setSearchContext] = useState<string | null>(null); // Dynamic city/context from address
 
-  // selected location from search
-  const [selectedSearchLocation, setSelectedSearchLocation] =
-    useState<SelectedLocation | null>(null);
-  const [showLocationModal, setShowLocationModal] = useState(false);
+  // map ref for controlling region
+  const mapRef = useRef<MapView>(null);
 
   // pre-fill data for new pin from search
   const [prefillLocation, setPrefillLocation] = useState<{
@@ -112,16 +117,34 @@ const Map: React.FC = () => {
   }, []);
 
   const fetchPosts = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const fetchedPosts = await getPostsWithTags();
-      const allPosts = [...fetchedPosts, ...DUMMY_PINS];
-      setPosts(allPosts);
-      setFilteredPosts(allPosts);
+      // Fetch both user's own posts and friends' posts
+      const [userPosts, friendsPosts] = await Promise.all([
+        getPostsWithTags(user.id),
+        getFriendsPostsWithTags(user.id),
+      ]);
+
+      // Combine and remove duplicates (in case of any)
+      const allPosts = [...userPosts, ...friendsPosts];
+      const uniquePosts = allPosts.filter(
+        (post, index, self) => index === self.findIndex((p) => p.id === post.id)
+      );
+
+      console.log(
+        `Map: Fetched ${userPosts.length} user posts and ${friendsPosts.length} friends posts`
+      );
+      setPosts(uniquePosts);
+      setFilteredPosts(uniquePosts);
     } catch (error) {
       console.error("Error fetching posts:", error);
-      setPosts(DUMMY_PINS);
-      setFilteredPosts(DUMMY_PINS);
+      setPosts([]);
+      setFilteredPosts([]);
     } finally {
       setLoading(false);
     }
@@ -142,10 +165,15 @@ const Map: React.FC = () => {
   // Extract city from address data
   const extractCityFromAddress = (result: SearchResult): string | null => {
     if (result.address) {
-      return result.address.city || result.address.town || result.address.village || null;
+      return (
+        result.address.city ||
+        result.address.town ||
+        result.address.village ||
+        null
+      );
     }
     // Fallback: try to extract from display_name (format: "Name, City, State, Country")
-    const parts = result.display_name.split(',');
+    const parts = result.display_name.split(",");
     if (parts.length >= 2) {
       // Usually city is the second part
       return parts[1]?.trim() || null;
@@ -187,7 +215,7 @@ const Map: React.FC = () => {
       const data: SearchResult[] = await response.json();
       setSearchResults(data);
       setShowResults(data.length > 0);
-      
+
       // Extract city from first result if available and update search context
       if (data.length > 0 && !searchContext) {
         const city = extractCityFromAddress(data[0]);
@@ -225,57 +253,28 @@ const Map: React.FC = () => {
   const handleSelectResult = (result: SearchResult) => {
     const lat = parseFloat(result.lat);
     const lon = parseFloat(result.lon);
-    const shortName = result.display_name.split(",")[0];
-    
+
     // Extract and store city from address for future searches
     const city = extractCityFromAddress(result);
     if (city && !searchContext) {
       setSearchContext(city);
     }
 
-    setSelectedSearchLocation({
-      name: shortName,
-      fullName: result.display_name,
-      latitude: lat,
-      longitude: lon,
-    });
-    setShowLocationModal(true);
+    // Animate map to location
+    if (mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: lat,
+          longitude: lon,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        },
+        1000
+      );
+    }
+
     setShowResults(false);
-    setSearchQuery(shortName);
-  };
-
-  // check if a location has been pinned by others (within ~100m)
-  const findNearbyPins = (lat: number, lon: number) => {
-    const threshold = 0.001; // roughly 100m
-    return posts.filter(
-      (post) =>
-        Math.abs(post.latitude - lat) < threshold &&
-        Math.abs(post.longitude - lon) < threshold
-    );
-  };
-
-  // check if user has pinned this location
-  const userHasPinned = (lat: number, lon: number) => {
-    if (!user) return false;
-    const threshold = 0.001;
-    return posts.some(
-      (post) =>
-        post.user_id === user.id &&
-        Math.abs(post.latitude - lat) < threshold &&
-        Math.abs(post.longitude - lon) < threshold
-    );
-  };
-
-  // handle creating a pin from search result
-  const handleCreatePinFromSearch = () => {
-    if (!selectedSearchLocation) return;
-    setPrefillLocation({
-      name: selectedSearchLocation.name,
-      latitude: selectedSearchLocation.latitude,
-      longitude: selectedSearchLocation.longitude,
-    });
-    setShowLocationModal(false);
-    setShowNewPin(true);
+    setSearchQuery("");
   };
 
   const toggleTag = (tagName: string) => {
@@ -287,39 +286,39 @@ const Map: React.FC = () => {
   };
 
   const handleMarkerPress = async (post: PostWithTags) => {
-    console.log('Marker pressed for location:', post.location_name);
+    console.log("Marker pressed for location:", post.location_name);
     setLoadingLocation(true);
     setSelectedLocation(post.location_name);
-    
+
     try {
       // Fetch all posts for this location
       const postsForLocation = await getPostsByLocation(post.location_name);
-      console.log('Found posts for location:', postsForLocation.length);
-      
-      // Fetch user profiles for each post
-      const userIds = postsForLocation.map(p => p.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .in('id', userIds);
+      console.log("Found posts for location:", postsForLocation.length);
 
-      console.log('Found profiles:', profiles?.length);
+      // Fetch user profiles for each post
+      const userIds = postsForLocation.map((p) => p.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", userIds);
+
+      console.log("Found profiles:", profiles?.length);
 
       const profileMap = (profiles || []).reduce((acc, profile) => {
         acc[profile.id] = profile;
         return acc;
       }, {} as Record<string, { username: string; avatar_url: string | null }>);
 
-      const postsWithUsers = postsForLocation.map(post => ({
+      const postsWithUsers = postsForLocation.map((post) => ({
         post,
-        username: profileMap[post.user_id]?.username || 'Unknown',
+        username: profileMap[post.user_id]?.username || "Unknown",
         avatar_url: profileMap[post.user_id]?.avatar_url || null,
       }));
 
-      console.log('Posts with users:', postsWithUsers.length);
+      console.log("Posts with users:", postsWithUsers.length);
       setLocationPosts(postsWithUsers);
     } catch (error) {
-      console.error('Error loading location posts:', error);
+      console.error("Error loading location posts:", error);
     } finally {
       setLoadingLocation(false);
     }
@@ -347,7 +346,8 @@ const Map: React.FC = () => {
         .then((res) => res.json())
         .then((data) => {
           if (data.address) {
-            const city = data.address.city || data.address.town || data.address.village;
+            const city =
+              data.address.city || data.address.town || data.address.village;
             if (city) {
               setSearchContext(city);
             }
@@ -365,18 +365,11 @@ const Map: React.FC = () => {
     );
   }
 
-  // get nearby pins for selected location
-  const nearbyPins = selectedSearchLocation
-    ? findNearbyPins(selectedSearchLocation.latitude, selectedSearchLocation.longitude)
-    : [];
-  const userAlreadyPinned = selectedSearchLocation
-    ? userHasPinned(selectedSearchLocation.latitude, selectedSearchLocation.longitude)
-    : false;
-
   return (
     <View style={styles.container}>
       {/* Map */}
       <MapView
+        ref={mapRef}
         style={styles.map}
         initialRegion={INITIAL_REGION}
         mapType="standard"
@@ -388,10 +381,16 @@ const Map: React.FC = () => {
               latitude: post.latitude,
               longitude: post.longitude,
             }}
-            title={post.location_name}
-            description={post.notes || undefined}
-            onPress={() => handleMarkerPress(post)}
-          />
+            onCalloutPress={() => handleMarkerPress(post)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleMarkerPress(post);
+            }}
+          >
+            <View style={styles.markerContainer}>
+              <MaterialIcons name="place" size={40} color="#122f60" />
+            </View>
+          </Marker>
         ))}
       </MapView>
 
@@ -513,173 +512,6 @@ const Map: React.FC = () => {
         })}
       </ScrollView>
 
-      {/* Location Details Modal (from search) */}
-      <Modal
-        visible={showLocationModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLocationModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.bg }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>
-                {selectedSearchLocation?.name}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowLocationModal(false)}
-                style={[styles.closeButton, { backgroundColor: theme.hover }]}
-              >
-                <MaterialIcons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
-
-            {selectedSearchLocation && (
-              <View style={styles.locationModalBody}>
-                <Text
-                  style={[
-                    styles.locationFullName,
-                    { color: themeMode === "light" ? "#4b5563" : "#9ca3af" },
-                  ]}
-                  numberOfLines={3}
-                >
-                  {selectedSearchLocation.fullName}
-                </Text>
-
-                {/* Show if pinned by others */}
-                {nearbyPins.length > 0 ? (
-                  <View
-                    style={[
-                      styles.pinnedSection,
-                      {
-                        backgroundColor: theme.hover,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                  >
-                    <View style={styles.pinnedInfo}>
-                      <Text style={[styles.pinnedTitle, { color: theme.text }]}>
-                        {nearbyPins.length}{" "}
-                        {nearbyPins.length === 1 ? "person has" : "people have"}{" "}
-                        pinned this location
-                      </Text>
-                      <Text
-                        style={[
-                          styles.pinnedNames,
-                          {
-                            color:
-                              themeMode === "light" ? "#4b5563" : "#9ca3af",
-                          },
-                        ]}
-                      >
-                        {nearbyPins
-                          .slice(0, 3)
-                          .map((p) => p.location_name)
-                          .join(", ")}
-                        {nearbyPins.length > 3 &&
-                          ` +${nearbyPins.length - 3} more`}
-                      </Text>
-                    </View>
-                  </View>
-                ) : (
-                  <View
-                    style={[
-                      styles.noPinsSection,
-                      { borderColor: theme.border },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.noPinsText,
-                        {
-                          color: themeMode === "light" ? "#4b5563" : "#9ca3af",
-                        },
-                      ]}
-                    >
-                      No one has pinned this location yet. Be the first!
-                    </Text>
-                  </View>
-                )}
-
-                {/* Show if user has already pinned */}
-                {userAlreadyPinned && (
-                  <View
-                    style={[
-                      styles.userPinnedBadge,
-                      { backgroundColor: theme.accent },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name="check-circle"
-                      size={18}
-                      color={theme.accentText}
-                    />
-                    <Text
-                      style={[
-                        styles.userPinnedText,
-                        { color: theme.accentText },
-                      ]}
-                    >
-                      You've pinned this location
-                    </Text>
-                  </View>
-                )}
-
-                {/* Create pin button */}
-                {!userAlreadyPinned && (
-                  <TouchableOpacity
-                    style={[
-                      styles.createPinButton,
-                      { backgroundColor: theme.accent },
-                    ]}
-                    onPress={handleCreatePinFromSearch}
-                  >
-                    <MaterialIcons
-                      name="add-location"
-                      size={24}
-                      color={theme.accentText}
-                    />
-                    <Text
-                      style={[
-                        styles.createPinText,
-                        { color: theme.accentText },
-                      ]}
-                    >
-                      Add Your Recommendation
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* View existing pins button */}
-                {nearbyPins.length > 0 && (
-                  <TouchableOpacity
-                    style={[
-                      styles.viewPinsButton,
-                      { borderColor: theme.border },
-                    ]}
-                    onPress={() => {
-                      setShowLocationModal(false);
-                      if (nearbyPins[0]) {
-                        handleMarkerPress(nearbyPins[0]);
-                      }
-                    }}
-                  >
-                    <MaterialIcons
-                      name="visibility"
-                      size={20}
-                      color={theme.text}
-                    />
-                    <Text style={[styles.viewPinsText, { color: theme.text }]}>
-                      View Existing Recommendations
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-
       {/* Location Corkboard Modal */}
       <Modal
         visible={selectedLocation !== null}
@@ -690,7 +522,9 @@ const Map: React.FC = () => {
         }}
       >
         {loadingLocation ? (
-          <View style={[styles.loadingContainer, { backgroundColor: theme.bg }]}>
+          <View
+            style={[styles.loadingContainer, { backgroundColor: theme.bg }]}
+          >
             <ActivityIndicator size="large" color={theme.accent} />
             <Text style={[styles.loadingText, { color: theme.text }]}>
               Loading recommendations...
@@ -699,7 +533,7 @@ const Map: React.FC = () => {
         ) : selectedLocation ? (
           <LocationCorkboard
             locationName={selectedLocation}
-            posts={locationPosts.map(item => ({
+            posts={locationPosts.map((item) => ({
               post: item.post,
               tags: item.post.tags,
               username: item.username,
@@ -712,6 +546,27 @@ const Map: React.FC = () => {
           />
         ) : null}
       </Modal>
+
+      {/* Floating Add Pin Button */}
+      <TouchableOpacity
+        style={[
+          styles.fabButton,
+          {
+            backgroundColor: themeMode === "dark" ? theme.border : theme.accent,
+            borderColor: themeMode === "dark" ? theme.text : theme.border,
+            borderStyle: "dashed",
+          },
+          theme.shadows,
+        ]}
+        onPress={() => setShowNewPin(true)}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons
+          name="add"
+          size={28}
+          color={themeMode === "dark" ? theme.text : palette.lightBlueText}
+        />
+      </TouchableOpacity>
 
       {/* New Pin Modal */}
       <NewPin
@@ -734,6 +589,10 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  markerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchContainer: {
     position: "absolute",
@@ -811,140 +670,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: height * 0.7,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    flex: 1,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalBody: {
-    gap: 15,
-  },
-  locationModalBody: {
-    gap: 12,
-  },
-  locationFullName: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  modalNotes: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  modalTags: {
-    gap: 8,
-  },
-  modalTagsLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  modalTagsList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  modalTagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  modalTagText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  modalCoordinates: {
-    marginTop: 5,
-  },
-  modalCoordinatesText: {
-    fontSize: 14,
-  },
-  pinnedSection: {
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  pinnedInfo: {
-    flex: 1,
-  },
-  pinnedTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  pinnedNames: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  noPinsSection: {
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
-  },
-  noPinsText: {
-    fontSize: 14,
-    textAlign: "center",
-  },
-  userPinnedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    gap: 8,
-  },
-  userPinnedText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  createPinButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  createPinText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  viewPinsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  viewPinsText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -955,6 +680,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     fontWeight: "500",
+  },
+  fabButton: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 8,
+    zIndex: 100,
   },
 });
 

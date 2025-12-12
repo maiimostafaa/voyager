@@ -46,6 +46,7 @@ const Feed: React.FC = () => {
     try {
       setLoading(true);
       const feed = await getFriendsFeed(user.id);
+      console.log(`Feed: Fetched ${feed.length} posts from friends`);
       setFeedData(feed);
     } catch (error) {
       console.error("Error loading feed:", error);

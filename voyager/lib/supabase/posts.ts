@@ -93,6 +93,71 @@ export const getPostsWithTags = async (userId?: string): Promise<PostWithTags[]>
   }));
 };
 
+export const getFriendsPostsWithTags = async (userId: string): Promise<PostWithTags[]> => {
+  // Get user's friends
+  const { data: friendships, error: friendsError } = await supabase
+    .from('friendships')
+    .select('user_id, friend_id')
+    .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+    .eq('status', 'accepted');
+
+  if (friendsError) {
+    console.error('Error fetching friendships:', friendsError);
+    return [];
+  }
+
+  // Extract friend IDs
+  const friendIds = (friendships || [])
+    .map((f) => (f.user_id === userId ? f.friend_id : f.user_id))
+    .filter(Boolean);
+
+  if (friendIds.length === 0) {
+    return [];
+  }
+
+  // Get posts from friends (no limit - show all)
+  const { data: posts, error: postsError } = await supabase
+    .from('posts')
+    .select('*')
+    .in('user_id', friendIds)
+    .order('created_at', { ascending: false });
+
+  if (postsError || !posts) {
+    console.error('Error fetching friends posts:', postsError);
+    return [];
+  }
+
+  if (posts.length === 0) {
+    return [];
+  }
+
+  // Get all tags for all posts in one query
+  const postIds = posts.map(p => p.id);
+  const { data: allTags, error: tagsError } = await supabase
+    .from('post_tags')
+    .select('*')
+    .in('post_id', postIds);
+
+  if (tagsError) {
+    console.error('Error fetching post tags:', tagsError);
+  }
+
+  // Group tags by post_id
+  const tagsByPostId = (allTags || []).reduce((acc, tag) => {
+    if (!acc[tag.post_id]) {
+      acc[tag.post_id] = [];
+    }
+    acc[tag.post_id].push(tag);
+    return acc;
+  }, {} as Record<string, PostTag[]>);
+
+  // Combine posts with their tags
+  return posts.map(post => ({
+    ...post,
+    tags: tagsByPostId[post.id] || [],
+  }));
+};
+
 export const getPostsByLocation = async (locationName: string): Promise<PostWithTags[]> => {
   // Get all posts for this location (RLS filters to own posts + friends' posts)
   const { data: posts, error } = await supabase
@@ -188,13 +253,12 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
     return [];
   }
 
-  // Get posts from friends
+  // Get posts from friends (no limit - show all)
   const { data: posts, error: postsError } = await supabase
     .from('posts')
     .select('*')
     .in('user_id', friendIds)
-    .order('created_at', { ascending: false })
-    .limit(50);
+    .order('created_at', { ascending: false });
 
   if (postsError || !posts || posts.length === 0) {
     console.error('Error fetching friends posts:', postsError);
