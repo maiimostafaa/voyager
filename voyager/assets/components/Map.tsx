@@ -37,6 +37,13 @@ interface SearchResult {
   lon: string;
   type?: string;
   class?: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    state?: string;
+    country?: string;
+  };
 }
 
 // type for selected location from search
@@ -63,6 +70,7 @@ const Map: React.FC = () => {
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [searchContext, setSearchContext] = useState<string | null>(null); // Dynamic city/context from address
 
   // selected location from search
   const [selectedLocation, setSelectedLocation] =
@@ -123,6 +131,20 @@ const Map: React.FC = () => {
     setFilteredPosts(filtered);
   };
 
+  // Extract city from address data
+  const extractCityFromAddress = (result: SearchResult): string | null => {
+    if (result.address) {
+      return result.address.city || result.address.town || result.address.village || null;
+    }
+    // Fallback: try to extract from display_name (format: "Name, City, State, Country")
+    const parts = result.display_name.split(',');
+    if (parts.length >= 2) {
+      // Usually city is the second part
+      return parts[1]?.trim() || null;
+    }
+    return null;
+  };
+
   // search for places using nominatim api
   const searchPlaces = async (query: string) => {
     if (query.length < 3) {
@@ -133,10 +155,21 @@ const Map: React.FC = () => {
 
     setSearching(true);
     try {
+      // Use search context if available, otherwise use query as-is
+      const enrichedQuery = searchContext ? `${query} ${searchContext}` : query;
+
+      // bias results to the current region (rough bounding box around INITIAL_REGION)
+      const viewbox = [
+        INITIAL_REGION.longitude - INITIAL_REGION.longitudeDelta,
+        INITIAL_REGION.latitude + INITIAL_REGION.latitudeDelta,
+        INITIAL_REGION.longitude + INITIAL_REGION.longitudeDelta,
+        INITIAL_REGION.latitude - INITIAL_REGION.latitudeDelta,
+      ].join(",");
+
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query
-        )}&limit=5`,
+        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&accept-language=en&q=${encodeURIComponent(
+          enrichedQuery
+        )}&limit=10&viewbox=${viewbox}&bounded=0&countrycodes=us`,
         {
           headers: {
             "User-Agent": "VoyagerApp/1.0",
@@ -146,6 +179,14 @@ const Map: React.FC = () => {
       const data: SearchResult[] = await response.json();
       setSearchResults(data);
       setShowResults(data.length > 0);
+      
+      // Extract city from first result if available and update search context
+      if (data.length > 0 && !searchContext) {
+        const city = extractCityFromAddress(data[0]);
+        if (city) {
+          setSearchContext(city);
+        }
+      }
     } catch (error) {
       console.error("Search error:", error);
       setSearchResults([]);
@@ -177,6 +218,12 @@ const Map: React.FC = () => {
     const lat = parseFloat(result.lat);
     const lon = parseFloat(result.lon);
     const shortName = result.display_name.split(",")[0];
+    
+    // Extract and store city from address for future searches
+    const city = extractCityFromAddress(result);
+    if (city && !searchContext) {
+      setSearchContext(city);
+    }
 
     setSelectedLocation({
       name: shortName,
@@ -240,6 +287,32 @@ const Map: React.FC = () => {
     setSearchResults([]);
     setShowResults(false);
   };
+
+  // Extract city from existing pins to set initial search context
+  useEffect(() => {
+    if (posts.length > 0 && !searchContext) {
+      // Try to reverse geocode the first pin to get city
+      const firstPost = posts[0];
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${firstPost.latitude}&lon=${firstPost.longitude}&addressdetails=1`,
+        {
+          headers: {
+            "User-Agent": "VoyagerApp/1.0",
+          },
+        }
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.address) {
+            const city = data.address.city || data.address.town || data.address.village;
+            if (city) {
+              setSearchContext(city);
+            }
+          }
+        })
+        .catch((err) => console.error("Reverse geocode error:", err));
+    }
+  }, [posts, searchContext]);
 
   if (loading) {
     return (

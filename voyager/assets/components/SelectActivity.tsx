@@ -21,6 +21,7 @@ interface SelectActivityProps {
   onSelect: (post: PostWithTags) => void;
   onClose: () => void;
   selectedPostId?: string | null;
+  refreshKey?: number; // triggers refetch when modal opens
 }
 
 const SelectActivity: React.FC<SelectActivityProps> = ({
@@ -28,6 +29,7 @@ const SelectActivity: React.FC<SelectActivityProps> = ({
   onSelect,
   onClose,
   selectedPostId,
+  refreshKey,
 }) => {
   const { theme, themeMode } = useTheme();
   const [posts, setPosts] = useState<PostWithTags[]>([]);
@@ -35,10 +37,18 @@ const SelectActivity: React.FC<SelectActivityProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchPosts();
   }, []);
+
+  // Re-fetch when parent requests refresh (e.g., modal just opened)
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      fetchPosts();
+    }
+  }, [refreshKey]);
 
   useEffect(() => {
     filterPosts();
@@ -48,17 +58,112 @@ const SelectActivity: React.FC<SelectActivityProps> = ({
     setLoading(true);
     try {
       const allPosts = await getPostsWithTags();
-      // Filter posts by location (case-insensitive partial match)
       const locationLower = location.toLowerCase().trim();
-      const locationPosts = allPosts.filter((post) => {
+      
+      // First, try simple name matching
+      let locationPosts = allPosts.filter((post) => {
         const postLocation = post.location_name.toLowerCase().trim();
-        // Check if location matches (either exact match or contains the trip location)
         return (
           postLocation === locationLower ||
           postLocation.includes(locationLower) ||
           locationLower.includes(postLocation)
         );
       });
+
+      // If no matches or few matches, also try matching by city using reverse geocoding
+      // Get city from trip location using geocoding
+      let tripCity: string | null = null;
+      let tripCoords: { lat: number; lon: number } | null = null;
+      
+      try {
+        const geocodeResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1&addressdetails=1`,
+          {
+            headers: {
+              "User-Agent": "VoyagerApp/1.0",
+            },
+          }
+        );
+        const geocodeData = await geocodeResponse.json();
+        
+        if (geocodeData.length > 0) {
+          if (geocodeData[0].address) {
+            tripCity = (geocodeData[0].address.city || 
+                       geocodeData[0].address.town || 
+                       geocodeData[0].address.village || 
+                       '').toLowerCase();
+          }
+          tripCoords = {
+            lat: parseFloat(geocodeData[0].lat),
+            lon: parseFloat(geocodeData[0].lon),
+          };
+        }
+      } catch (geocodeError) {
+        console.error('Geocoding error:', geocodeError);
+      }
+
+      // If we have a city, also include posts in the same city
+      if (tripCity) {
+        const postsByCity = await Promise.all(
+          allPosts.map(async (post) => {
+            // Skip if already matched by name
+            const postLocation = post.location_name.toLowerCase().trim();
+            const nameMatched = (
+              postLocation === locationLower ||
+              postLocation.includes(locationLower) ||
+              locationLower.includes(postLocation)
+            );
+            
+            if (nameMatched) {
+              return { post, match: true };
+            }
+
+            // Try reverse geocoding to get city
+            try {
+              const reverseResponse = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${post.latitude}&lon=${post.longitude}&addressdetails=1`,
+                {
+                  headers: {
+                    "User-Agent": "VoyagerApp/1.0",
+                  },
+                }
+              );
+              const reverseData = await reverseResponse.json();
+              if (reverseData.address) {
+                const postCity = (reverseData.address.city || 
+                                 reverseData.address.town || 
+                                 reverseData.address.village || 
+                                 '').toLowerCase();
+                return { post, match: postCity === tripCity };
+              }
+            } catch (err) {
+              // If reverse geocode fails, check proximity if we have trip coords
+              if (tripCoords) {
+                // Calculate distance (rough approximation)
+                const latDiff = Math.abs(post.latitude - tripCoords.lat);
+                const lonDiff = Math.abs(post.longitude - tripCoords.lon);
+                // Within ~50km (roughly 0.5 degrees)
+                const isNearby = latDiff < 0.5 && lonDiff < 0.5;
+                return { post, match: isNearby };
+              }
+            }
+            return { post, match: false };
+          })
+        );
+
+        // Combine name-matched and city-matched posts
+        const cityMatchedPosts = postsByCity
+          .filter(({ match }) => match)
+          .map(({ post }) => post);
+        
+        // Merge and deduplicate
+        const allMatched = [...locationPosts, ...cityMatchedPosts];
+        const uniquePosts = Array.from(
+          new Map(allMatched.map(post => [post.id, post])).values()
+        );
+        locationPosts = uniquePosts;
+      }
+
       setPosts(locationPosts);
       setFilteredPosts(locationPosts);
     } catch (error) {
@@ -67,7 +172,13 @@ const SelectActivity: React.FC<SelectActivityProps> = ({
       setFilteredPosts([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchPosts();
   };
 
   const filterPosts = () => {
@@ -128,7 +239,17 @@ const SelectActivity: React.FC<SelectActivityProps> = ({
             {location}
           </Text>
         </View>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          onPress={handleRefresh}
+          style={[styles.refreshButton, { backgroundColor: theme.hover }]}
+          activeOpacity={0.7}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={theme.text} />
+          ) : (
+            <MaterialIcons name="refresh" size={22} color={theme.text} />
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -389,6 +510,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+    zIndex: 1,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
     gap: 6,

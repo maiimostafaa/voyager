@@ -16,7 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
-import { getTripPlanWithDays, updateTripPlan, updateTripDay, deleteTripPlan } from '../../lib/supabase/trips';
+import { getTripPlanWithDays, updateTripPlan, updateTripDay, deleteTripPlan, addTripDay, deleteTripDay } from '../../lib/supabase/trips';
 import { TripPlan, TripPlanDay } from '../../lib/types/database.types';
 import { getPostWithDetails, PostWithTags } from '../../lib/supabase/posts';
 import { Post } from '../../lib/types/database.types';
@@ -54,6 +54,8 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
   const [saving, setSaving] = useState(false);
   const [showSelectActivity, setShowSelectActivity] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [selectedDayOrder, setSelectedDayOrder] = useState<number | null>(null);
+  const [activityRefreshKey, setActivityRefreshKey] = useState<number>(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -509,128 +511,156 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
           )}
         </View>
 
-        {/* Days Sections */}
-        {days.length > 0 && (
-          <View style={styles.daysContainer}>
-            {days.map((day) => (
-              <View key={day.id} style={styles.daySection}>
-                <View style={styles.dayHeader}>
-                  <Text style={[styles.dayTitle, { color: theme.text }]}>
-                    Day {day.order}
-                  </Text>
-                  <View style={styles.dayDateContainer}>
-                    <Text style={[styles.dayDate, { color: theme.text }]}>
-                      {formatDayDate(day.date)}
-                    </Text>
-                    {(() => {
-                      if (!tripPlan.title) return null;
-                      
-                      const weather = getWeatherForDay(day.date);
-                      if (loadingWeather) {
-                        return (
-                          <ActivityIndicator
-                            size="small"
-                            color={theme.textSecondary}
-                            style={styles.weatherIcon}
-                          />
-                        );
-                      }
-                      if (weather) {
-                        return (
-                          <View style={styles.weatherContainer}>
-                            <MaterialIcons
-                              name={getWeatherIconName(weather.main, weather.description) as any}
-                              size={24}
-                              color={theme.text}
-                              style={styles.weatherIcon}
-                            />
-                          </View>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </View>
-                </View>
+        {/* Days Sections - Group by order */}
+        {(() => {
+          // Group days by order
+          const daysByOrder = new Map<number, DayWithPost[]>();
+          days.forEach((day) => {
+            const existing = daysByOrder.get(day.order) || [];
+            daysByOrder.set(day.order, [...existing, day]);
+          });
+          
+          // Get unique orders and sort
+          const uniqueOrders = Array.from(daysByOrder.keys()).sort((a, b) => a - b);
+          
+          return uniqueOrders.length > 0 ? (
+            <View style={styles.daysContainer}>
+              {uniqueOrders.map((order) => {
+                const dayGroup = daysByOrder.get(order)!;
+                const firstDay = dayGroup[0]; // Use first day for date/weather display
+                const activities = dayGroup.filter(d => d.post); // Activities with posts
+                
+                return (
+                  <View key={`day-${order}`} style={styles.daySection}>
+                    <View style={styles.dayHeader}>
+                      <Text style={[styles.dayTitle, { color: theme.text }]}>
+                        Day {order}
+                      </Text>
+                      <View style={styles.dayDateContainer}>
+                        <Text style={[styles.dayDate, { color: theme.text }]}>
+                          {formatDayDate(firstDay.date)}
+                        </Text>
+                        {(() => {
+                          if (!tripPlan.title) return null;
+                          
+                          const weather = getWeatherForDay(firstDay.date);
+                          if (loadingWeather) {
+                            return (
+                              <ActivityIndicator
+                                size="small"
+                                color={theme.textSecondary}
+                                style={styles.weatherIcon}
+                              />
+                            );
+                          }
+                          if (weather) {
+                            return (
+                              <View style={styles.weatherContainer}>
+                                <MaterialIcons
+                                  name={getWeatherIconName(weather.main, weather.description) as any}
+                                  size={24}
+                                  color={theme.text}
+                                  style={styles.weatherIcon}
+                                />
+                              </View>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </View>
+                    </View>
 
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.dayScrollContent}
-                  style={styles.dayScrollView}
-                >
-                  {/* Show post if exists */}
-                  {day.post ? (
-                    <View style={styles.activityCardContainer}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.dayScrollContent}
+                      style={styles.dayScrollView}
+                    >
+                      {/* Always show plus button on the left */}
                       <TouchableOpacity
                         style={[
-                          styles.activityCard,
+                          styles.circularAddButton,
                           {
-                            backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
-                            borderColor: theme.border,
+                            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+                            borderColor: themeMode === 'dark' ? theme.text : theme.border,
+                            borderStyle: 'dashed',
                           },
                         ]}
                         onPress={() => {
-                          setSelectedDayId(day.id);
+                          setSelectedDayOrder(order);
+                          setSelectedDayId(null); // New activity, not editing existing
+                          setActivityRefreshKey(Date.now());
                           setShowSelectActivity(true);
                         }}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.activityCardHeader}>
-                          <MaterialIcons name="place" size={20} color={theme.text} />
-                          <Text
-                            style={[styles.activityLocation, { color: theme.text }]}
-                            numberOfLines={1}
+                        <MaterialIcons name="add" size={28} color={theme.text} />
+                      </TouchableOpacity>
+                      
+                      {/* Show all activities for this day */}
+                      {activities.map((day) => (
+                        <View key={day.id} style={styles.activityCardContainer}>
+                          <TouchableOpacity
+                            style={[
+                              styles.activityCard,
+                              {
+                                backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
+                                borderColor: theme.border,
+                              },
+                            ]}
+                            onPress={() => {
+                              setSelectedDayId(day.id);
+                              setSelectedDayOrder(order);
+                              setActivityRefreshKey(Date.now());
+                              setShowSelectActivity(true);
+                            }}
+                            activeOpacity={0.7}
                           >
-                            {day.post.location_name}
-                          </Text>
+                            <View style={styles.activityCardHeader}>
+                              <MaterialIcons name="place" size={20} color={theme.text} />
+                              <Text
+                                style={[styles.activityLocation, { color: theme.text }]}
+                                numberOfLines={1}
+                              >
+                                {day.post?.location_name}
+                              </Text>
+                            </View>
+                            {day.post?.notes && (
+                              <Text
+                                style={[styles.activityNotes, { color: theme.textSecondary }]}
+                                numberOfLines={2}
+                              >
+                                {day.post.notes}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.deleteActivityButton,
+                              { backgroundColor: theme.hover },
+                            ]}
+                            onPress={async () => {
+                              const success = await deleteTripDay(day.id);
+                              if (success) {
+                                await fetchTripData();
+                                if (onTripUpdated) {
+                                  onTripUpdated();
+                                }
+                              }
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <MaterialIcons name="delete" size={16} color={theme.text} />
+                          </TouchableOpacity>
                         </View>
-                        {day.post.notes && (
-                          <Text
-                            style={[styles.activityNotes, { color: theme.textSecondary }]}
-                            numberOfLines={2}
-                          >
-                            {day.post.notes}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.editActivityButton,
-                          { backgroundColor: theme.hover },
-                        ]}
-                        onPress={() => {
-                          setSelectedDayId(day.id);
-                          setShowSelectActivity(true);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcons name="edit" size={16} color={theme.text} />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.circularAddButton,
-                        {
-                          backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
-                          borderColor: themeMode === 'dark' ? theme.text : theme.border,
-                          borderStyle: 'dashed',
-                        },
-                      ]}
-                      onPress={() => {
-                        setSelectedDayId(day.id);
-                        setShowSelectActivity(true);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialIcons name="add" size={28} color={theme.text} />
-                    </TouchableOpacity>
-                  )}
-                </ScrollView>
-              </View>
-            ))}
-          </View>
-        )}
+                      ))}
+                    </ScrollView>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null;
+        })()}
 
         {/* Delete Trip Button - Only show when not in edit mode and there are days */}
         {!isEditMode && days.length > 0 && (
@@ -742,7 +772,7 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
       )}
 
       {/* Select Activity Modal */}
-      {showSelectActivity && tripPlan && selectedDayId !== null && (
+      {showSelectActivity && tripPlan && (
         <Modal
           visible={showSelectActivity}
           animationType="slide"
@@ -750,33 +780,90 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
           onRequestClose={() => {
             setShowSelectActivity(false);
             setSelectedDayId(null);
+            setSelectedDayOrder(null);
           }}
         >
-          <SelectActivity
-            location={tripPlan.title}
-            onSelect={async (post: PostWithTags) => {
-              if (user?.id && selectedDayId) {
-                const updated = await updateTripDay(selectedDayId, {
-                  post_id: post.id,
-                });
-                if (updated) {
-                  // Refresh trip data to show the new activity
-                  await fetchTripData();
-                  // Notify parent if callback exists
-                  if (onTripUpdated) {
-                    onTripUpdated();
+          {selectedDayOrder !== null ? (
+            <SelectActivity
+              location={tripPlan.title}
+              refreshKey={activityRefreshKey}
+              onSelect={async (post: PostWithTags) => {
+                if (user?.id && tripPlan && selectedDayOrder !== null) {
+                  if (selectedDayId) {
+                    // Editing existing activity - update it
+                    const updated = await updateTripDay(selectedDayId, {
+                      post_id: post.id,
+                    });
+                    if (updated) {
+                      await fetchTripData();
+                      if (onTripUpdated) {
+                        onTripUpdated();
+                      }
+                    }
+                  } else {
+                    // Adding new activity - create new trip day entry
+                    // Find a day with this order to get the date, or calculate from trip dates
+                    let dayDate: string;
+                    let dayOrder: number = selectedDayOrder;
+                    
+                    const dayWithOrder = days.find(d => d.order === selectedDayOrder);
+                    if (dayWithOrder) {
+                      dayDate = dayWithOrder.date;
+                    } else {
+                      // Calculate date from trip start date and order
+                      if (tripPlan.start_date) {
+                        const start = parseDateString(tripPlan.start_date);
+                        const currentDate = new Date(start);
+                        currentDate.setDate(start.getDate() + selectedDayOrder - 1);
+                        dayDate = formatDateForInput(currentDate);
+                      } else {
+                        // Fallback to today if no start date
+                        dayDate = formatDateForInput(new Date());
+                      }
+                    }
+                    
+                    const newDay = await addTripDay(tripPlan.id, {
+                      date: dayDate,
+                      order: dayOrder,
+                      post_id: post.id,
+                    });
+                    if (newDay) {
+                      await fetchTripData();
+                      if (onTripUpdated) {
+                        onTripUpdated();
+                      }
+                    }
                   }
                 }
-              }
-              setShowSelectActivity(false);
-              setSelectedDayId(null);
-            }}
-            onClose={() => {
-              setShowSelectActivity(false);
-              setSelectedDayId(null);
-            }}
-            selectedPostId={days.find((d) => d.id === selectedDayId)?.post_id || null}
-          />
+                setShowSelectActivity(false);
+                setSelectedDayId(null);
+                setSelectedDayOrder(null);
+              }}
+              onClose={() => {
+                setShowSelectActivity(false);
+                setSelectedDayId(null);
+                setSelectedDayOrder(null);
+              }}
+              selectedPostId={selectedDayId ? days.find((d) => d.id === selectedDayId)?.post_id || null : null}
+            />
+          ) : (
+            <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <MaterialIcons name="error-outline" size={48} color={theme.textSecondary} />
+              <Text style={{ color: theme.text, marginTop: 16, textAlign: 'center' }}>
+                Unable to add activity. Please try again.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSelectActivity(false);
+                  setSelectedDayId(null);
+                  setSelectedDayOrder(null);
+                }}
+                style={{ marginTop: 20, padding: 12, backgroundColor: theme.hover, borderRadius: 8 }}
+              >
+                <Text style={{ color: theme.text }}>Close</Text>
+              </TouchableOpacity>
+            </SafeAreaView>
+          )}
         </Modal>
       )}
 
@@ -1026,7 +1113,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 16,
   },
-  editActivityButton: {
+  deleteActivityButton: {
     position: 'absolute',
     top: 8,
     right: 8,

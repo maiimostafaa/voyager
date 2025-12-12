@@ -41,7 +41,8 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
   const [saving, setSaving] = useState(false);
   const [showSelectActivity, setShowSelectActivity] = useState(false);
   const [selectedDayForActivity, setSelectedDayForActivity] = useState<number | null>(null);
-  const [dayActivities, setDayActivities] = useState<Map<number, PostWithTags>>(new Map());
+  const [dayActivities, setDayActivities] = useState<Map<number, PostWithTags[]>>(new Map());
+  const [activityRefreshKey, setActivityRefreshKey] = useState<number>(0);
 
   // Parse date string (YYYY-MM-DD) to Date object in local timezone
   const parseDateString = (dateString: string): Date => {
@@ -219,12 +220,24 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
       for (let i = 0; i < days.length; i++) {
         const dayNumber = days[i];
         const dayDate = getDayDateString(dayNumber);
-        const activity = dayActivities.get(dayNumber);
-        await addTripDay(tripPlan.id, {
-          date: dayDate,
-          order: dayNumber,
-          post_id: activity?.id,
-        });
+        const activities = dayActivities.get(dayNumber) || [];
+        
+        // If no activities for this day, still create a day entry
+        if (activities.length === 0) {
+          await addTripDay(tripPlan.id, {
+            date: dayDate,
+            order: dayNumber,
+          });
+        } else {
+          // Create a trip day entry for each activity
+          for (let j = 0; j < activities.length; j++) {
+            await addTripDay(tripPlan.id, {
+              date: dayDate,
+              order: dayNumber,
+              post_id: activities[j]?.id,
+            });
+          }
+        }
       }
 
       // Close modal and refresh trip list
@@ -373,56 +386,83 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
                   contentContainerStyle={styles.dayScrollContent}
                   style={styles.dayScrollView}
                 >
-                  {/* Show activity card if exists, otherwise show add button */}
-                  {dayActivities.has(dayNumber) ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.activityCard,
-                        {
-                          backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
-                          borderColor: theme.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setSelectedDayForActivity(dayNumber);
-                        setShowSelectActivity(true);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.activityCardHeader}>
-                        <MaterialIcons name="place" size={20} color={theme.text} />
-                        <Text
-                          style={[styles.activityLocation, { color: theme.text }]}
-                          numberOfLines={1}
-                        >
-                          {dayActivities.get(dayNumber)?.location_name}
-                        </Text>
-                      </View>
-                      {dayActivities.get(dayNumber)?.notes && (
-                        <Text
-                          style={[styles.activityNotes, { color: theme.textSecondary }]}
-                          numberOfLines={2}
-                        >
-                          {dayActivities.get(dayNumber)?.notes}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.circularAddButton, { 
-                        backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
-                        borderColor: themeMode === 'dark' ? theme.text : theme.border,
-                        borderStyle: 'dashed',
-                      }]}
-                      onPress={() => {
-                        setSelectedDayForActivity(dayNumber);
-                        setShowSelectActivity(true);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialIcons name="add" size={28} color={theme.text} />
-                    </TouchableOpacity>
-                  )}
+                  {/* Always show plus button on the left */}
+                  <TouchableOpacity
+                    style={[styles.circularAddButton, { 
+                      backgroundColor: themeMode === 'dark' ? theme.border : theme.accent, 
+                      borderColor: themeMode === 'dark' ? theme.text : theme.border,
+                      borderStyle: 'dashed',
+                    }]}
+                    onPress={() => {
+                      setSelectedDayForActivity(dayNumber);
+                      setActivityRefreshKey(Date.now());
+                      setShowSelectActivity(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="add" size={28} color={theme.text} />
+                  </TouchableOpacity>
+                  
+                  {/* Show all activity cards for this day */}
+                  {(dayActivities.get(dayNumber) || []).map((activity, index) => (
+                    <View key={`${dayNumber}-${activity.id}-${index}`} style={styles.activityCardContainer}>
+                      <TouchableOpacity
+                        style={[
+                          styles.activityCard,
+                          {
+                            backgroundColor: themeMode === 'dark' ? theme.bg : theme.accent,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedDayForActivity(dayNumber);
+                          setActivityRefreshKey(Date.now());
+                          setShowSelectActivity(true);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.activityCardHeader}>
+                          <MaterialIcons name="place" size={20} color={theme.text} />
+                          <Text
+                            style={[styles.activityLocation, { color: theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {activity.location_name}
+                          </Text>
+                        </View>
+                        {activity.notes && (
+                          <Text
+                            style={[styles.activityNotes, { color: theme.textSecondary }]}
+                            numberOfLines={2}
+                          >
+                            {activity.notes}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteActivityButton,
+                          { backgroundColor: theme.hover },
+                        ]}
+                        onPress={() => {
+                          setDayActivities((prev) => {
+                            const newMap = new Map(prev);
+                            const existingActivities = newMap.get(dayNumber) || [];
+                            const filtered = existingActivities.filter(a => a.id !== activity.id);
+                            if (filtered.length > 0) {
+                              newMap.set(dayNumber, filtered);
+                            } else {
+                              newMap.delete(dayNumber);
+                            }
+                            return newMap;
+                          });
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcons name="delete" size={16} color={theme.text} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </ScrollView>
               </View>
             ))}
@@ -555,7 +595,7 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
       )}
 
       {/* Select Activity Modal */}
-      {showSelectActivity && location && selectedDayForActivity !== null && (
+      {showSelectActivity && (
         <Modal
           visible={showSelectActivity}
           animationType="slide"
@@ -565,23 +605,48 @@ const NewTrip: React.FC<NewTripProps> = ({ onClose }) => {
             setSelectedDayForActivity(null);
           }}
         >
-          <SelectActivity
-            location={location}
-            onSelect={(post) => {
-              setDayActivities((prev) => {
-                const newMap = new Map(prev);
-                newMap.set(selectedDayForActivity, post);
-                return newMap;
-              });
-              setShowSelectActivity(false);
-              setSelectedDayForActivity(null);
-            }}
-            onClose={() => {
-              setShowSelectActivity(false);
-              setSelectedDayForActivity(null);
-            }}
-            selectedPostId={dayActivities.get(selectedDayForActivity)?.id}
-          />
+          {location && selectedDayForActivity !== null ? (
+            <SelectActivity
+              location={location}
+              refreshKey={activityRefreshKey}
+              onSelect={(post) => {
+                if (selectedDayForActivity !== null) {
+                  setDayActivities((prev) => {
+                    const newMap = new Map(prev);
+                    const existingActivities = newMap.get(selectedDayForActivity) || [];
+                    // Add the new activity if it's not already in the list
+                    if (!existingActivities.some(a => a.id === post.id)) {
+                      newMap.set(selectedDayForActivity, [...existingActivities, post]);
+                    }
+                    return newMap;
+                  });
+                }
+                setShowSelectActivity(false);
+                setSelectedDayForActivity(null);
+              }}
+              onClose={() => {
+                setShowSelectActivity(false);
+                setSelectedDayForActivity(null);
+              }}
+              selectedPostId={null}
+            />
+          ) : (
+            <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <MaterialIcons name="error-outline" size={48} color={theme.textSecondary} />
+              <Text style={{ color: theme.text, marginTop: 16, textAlign: 'center' }}>
+                Please enter a location first before adding activities.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSelectActivity(false);
+                  setSelectedDayForActivity(null);
+                }}
+                style={{ marginTop: 20, padding: 12, backgroundColor: theme.hover, borderRadius: 8 }}
+              >
+                <Text style={{ color: theme.text }}>Close</Text>
+              </TouchableOpacity>
+            </SafeAreaView>
+          )}
         </Modal>
       )}
     </SafeAreaView>
@@ -867,12 +932,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  activityCardContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
   activityCard: {
     width: 200,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    marginRight: 16,
     ...{
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -895,6 +963,17 @@ const styles = StyleSheet.create({
   activityNotes: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  deleteActivityButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
 });
 
