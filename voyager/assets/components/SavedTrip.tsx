@@ -617,10 +617,10 @@ const SavedTrip: React.FC<SavedTripProps> = ({ tripPlanId, onClose, onTripUpdate
                             activeOpacity={0.7}
                           >
                             <View style={styles.activityCardHeader}>
-                              <MaterialIcons name="place" size={20} color={theme.text} />
+                              <MaterialIcons name="place" size={20} color={theme.text} style={styles.locationIcon} />
                               <Text
                                 style={[styles.activityLocation, { color: theme.text }]}
-                                numberOfLines={1}
+                                numberOfLines={3}
                               >
                                 {day.post?.location_name}
                               </Text>
@@ -1143,14 +1143,18 @@ const styles = StyleSheet.create({
   },
   activityCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     marginBottom: 8,
+  },
+  locationIcon: {
+    marginTop: 2,
   },
   activityLocation: {
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
+    flexWrap: 'wrap',
   },
   activityNotes: {
     fontSize: 14,
