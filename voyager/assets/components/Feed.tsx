@@ -24,6 +24,7 @@ import {
   savePost,
   unsavePost,
 } from "../../lib/supabase/posts";
+import { getFriends } from "../../lib/supabase/friends";
 
 const { width } = Dimensions.get("window");
 
@@ -36,6 +37,7 @@ const Feed: React.FC = () => {
   const [showAddFriendsModal, setShowAddFriendsModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUsername, setSelectedUsername] = useState<string>("");
+  const [friendCount, setFriendCount] = useState<number>(0);
 
   useEffect(() => {
     if (user?.id) {
@@ -44,15 +46,30 @@ const Feed: React.FC = () => {
   }, [user?.id]);
 
   const loadFeed = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('[Feed] No user ID available, skipping feed load');
+      return;
+    }
 
     try {
       setLoading(true);
-      const feed = await getFriendsFeed(user.id);
-      console.log(`Feed: Fetched ${feed.length} posts from friends`);
+      console.log('[Feed] Loading feed for user:', user.id);
+      
+      // Fetch feed and friends count in parallel
+      const [feed, friends] = await Promise.all([
+        getFriendsFeed(user.id),
+        getFriends(user.id),
+      ]);
+      
+      console.log(`[Feed] Fetched ${feed.length} posts, ${friends.length} friends`);
+      if (feed.length > 0) {
+        console.log('[Feed] First post:', feed[0].post.location_name, 'by', feed[0].user.username);
+      }
+      
       setFeedData(feed);
+      setFriendCount(friends.length);
     } catch (error) {
-      console.error("Error loading feed:", error);
+      console.error("[Feed] Error loading feed:", error);
     } finally {
       setLoading(false);
     }
@@ -342,17 +359,19 @@ const Feed: React.FC = () => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialIcons
-                name="people-outline"
+                name={friendCount > 0 ? "explore" : "people-outline"}
                 size={64}
                 color={theme.textSecondary}
               />
               <Text style={[styles.emptyText, { color: theme.text }]}>
-                No posts yet
+                {friendCount > 0 ? "No posts yet" : "Add some friends!"}
               </Text>
               <Text
                 style={[styles.emptySubtext, { color: theme.textSecondary }]}
               >
-                Add friends to see their travel recommendations
+                {friendCount > 0
+                  ? `You have ${friendCount} friend${friendCount === 1 ? '' : 's'}. Start by pinning your favorite spots, or wait for your friends to share theirs!`
+                  : "Add friends to see their travel recommendations in your feed"}
               </Text>
             </View>
           }

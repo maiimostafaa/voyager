@@ -232,6 +232,8 @@ export interface FeedPost {
 }
 
 export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
+  console.log('[getFriendsFeed] Starting feed fetch for user:', userId);
+  
   // Get user's friends using RLS-enabled query
   const { data: friendships, error: friendsError } = await supabase
     .from('friendships')
@@ -240,21 +242,21 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
     .eq('status', 'accepted');
 
   if (friendsError) {
-    console.error('Error fetching friendships:', friendsError);
+    console.error('[getFriendsFeed] Error fetching friendships:', friendsError);
     return [];
   }
+
+  console.log('[getFriendsFeed] Found accepted friendships:', friendships?.length || 0);
 
   // Extract friend IDs and include the user themselves
   const friendIds = (friendships || [])
     .map((f) => (f.user_id === userId ? f.friend_id : f.user_id))
     .filter(Boolean);
   
+  console.log('[getFriendsFeed] Friend IDs extracted:', friendIds);
+  
   // Add the user's own ID to show their posts in the feed
   const allUserIds = [userId, ...friendIds];
-
-  if (allUserIds.length === 0) {
-    return [];
-  }
 
   // Get posts from user and friends (no limit - show all)
   const { data: posts, error: postsError } = await supabase
@@ -263,8 +265,15 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
     .in('user_id', allUserIds)
     .order('created_at', { ascending: false });
 
-  if (postsError || !posts || posts.length === 0) {
-    console.error('Error fetching posts:', postsError);
+  if (postsError) {
+    console.error('[getFriendsFeed] Error fetching posts:', postsError);
+    return [];
+  }
+
+  console.log('[getFriendsFeed] Posts fetched:', posts?.length || 0);
+
+  if (!posts || posts.length === 0) {
+    console.log('[getFriendsFeed] No posts found for user and friends');
     return [];
   }
 
