@@ -422,12 +422,14 @@ const NewPin: React.FC<NewPinProps> = ({
                     themeMode === "dark" ? theme.border : theme.accent,
                   borderColor: theme.border,
                 },
+                theme.shadows,
               ]}
             >
               <MaterialIcons
                 name="search"
-                size={22}
+                size={24}
                 color={themeMode === "light" ? theme.text : theme.textSecondary}
+                style={styles.searchIcon}
               />
               <TextInput
                 style={[styles.searchInput, { color: theme.text }]}
@@ -443,7 +445,7 @@ const NewPin: React.FC<NewPinProps> = ({
                 <ActivityIndicator
                   size="small"
                   color={theme.textSecondary}
-                  style={{ marginLeft: 8 }}
+                  style={{ marginRight: 8 }}
                 />
               )}
               {searchQuery.length > 0 && !searching && (
@@ -454,11 +456,12 @@ const NewPin: React.FC<NewPinProps> = ({
                     setSearchResults([]);
                     setShowResults(false);
                   }}
+                  style={styles.clearButton}
                 >
                   <MaterialIcons
                     name="close"
                     size={20}
-                    color={theme.textSecondary}
+                    color={themeMode === "light" ? theme.text : theme.textSecondary}
                   />
                 </TouchableOpacity>
               )}
@@ -790,15 +793,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    elevation: 5,
+  },
+  searchIcon: {
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     paddingVertical: 0,
+  },
+  clearButton: {
+    padding: 5,
+    marginLeft: 5,
   },
   // dropdown results
   resultsDropdown: {

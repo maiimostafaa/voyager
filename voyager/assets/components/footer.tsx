@@ -84,10 +84,10 @@ const Footer: React.FC<FooterProps> = ({ activeTab, onTabPress }) => {
         const isActive = tab.key === activeTab;
         const color = isActive ? theme.text : `${theme.text}CC`;
         const labelProgress = animationRefs.current[tab.key];
-        const targetLabelWidth = Math.max(28, tab.label.length * 7);
+        const targetLabelWidth = Math.max(32, tab.label.length * 8.5);
         const pillWidth = labelProgress.interpolate({
           inputRange: [0, 1],
-          outputRange: [50, 50 + targetLabelWidth + 20],
+          outputRange: [50, 50 + targetLabelWidth + 24],
         });
 
         return (

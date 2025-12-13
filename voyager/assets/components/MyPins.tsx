@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,13 @@ import {
   TextInput,
   Image,
   Modal,
-} from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../themes/themeMode';
-import { palette } from '../themes/palette';
-import { useAuth } from '../contexts/AuthContext';
-import { getPostsWithTags, PostWithTags } from '../../lib/supabase/posts';
-import { VALID_TAGS } from '../../lib/types/database.types';
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useTheme } from "../themes/themeMode";
+import { palette } from "../themes/palette";
+import { useAuth } from "../contexts/AuthContext";
+import { getPostsWithTags, PostWithTags } from "../../lib/supabase/posts";
+import { VALID_TAGS } from "../../lib/types/database.types";
 
 interface MyPinsProps {
   visible: boolean;
@@ -30,7 +30,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
   const [pins, setPins] = useState<PostWithTags[]>([]);
   const [filteredPins, setFilteredPins] = useState<PostWithTags[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -46,7 +46,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
 
   const fetchPins = async () => {
     if (!user?.id) return;
-    
+
     setLoading(true);
     setRefreshing(true);
     try {
@@ -54,7 +54,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
       setPins(userPins);
       setFilteredPins(userPins);
     } catch (error) {
-      console.error('Error fetching pins:', error);
+      console.error("Error fetching pins:", error);
       setPins([]);
       setFilteredPins([]);
     } finally {
@@ -69,9 +69,10 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((pin) =>
-        pin.location_name.toLowerCase().includes(query) ||
-        (pin.notes && pin.notes.toLowerCase().includes(query))
+      filtered = filtered.filter(
+        (pin) =>
+          pin.location_name.toLowerCase().includes(query) ||
+          (pin.notes && pin.notes.toLowerCase().includes(query))
       );
     }
 
@@ -137,33 +138,39 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
             style={[
               styles.searchInputContainer,
               {
-                backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+                backgroundColor:
+                  themeMode === "dark" ? theme.border : theme.accent,
                 borderColor: theme.border,
               },
+              theme.shadows,
             ]}
           >
             <MaterialIcons
               name="search"
-              size={20}
-              color={theme.text}
+              size={24}
+              color={themeMode === "light" ? theme.text : theme.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
               style={[styles.searchInput, { color: theme.text }]}
               placeholder="Search your pins..."
-              placeholderTextColor={theme.text}
+              placeholderTextColor={
+                themeMode === "light" ? theme.text : theme.textSecondary
+              }
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity
-                onPress={() => setSearchQuery('')}
+                onPress={() => setSearchQuery("")}
                 style={styles.clearButton}
               >
                 <MaterialIcons
                   name="close"
-                  size={18}
-                  color={theme.text}
+                  size={20}
+                  color={
+                    themeMode === "light" ? theme.text : theme.textSecondary
+                  }
                 />
               </TouchableOpacity>
             )}
@@ -187,15 +194,10 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                   styles.tagChip,
                   {
                     backgroundColor: isSelected
-                      ? themeMode === 'dark'
-                        ? palette.lightBlueHover
-                        : palette.lightBlueAccent
-                      : theme.hover,
-                    borderColor: isSelected
-                      ? themeMode === 'dark'
-                        ? palette.lightBlueHover
-                        : palette.lightBlueAccent
-                      : theme.border,
+                      ? palette.lightBlueAccent
+                      : themeMode === "dark"
+                      ? theme.hover
+                      : "#e8eef7",
                   },
                 ]}
                 activeOpacity={0.7}
@@ -205,12 +207,10 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                     styles.tagText,
                     {
                       color: isSelected
-                        ? themeMode === 'dark'
-                          ? palette.lightBlueText
-                          : palette.lightBlueText
-                        : themeMode === 'light'
-                        ? palette.lightBlueText
-                        : theme.text,
+                        ? "#ffffff"
+                        : themeMode === "dark"
+                        ? theme.text
+                        : palette.darkBlueAccent,
                     },
                   ]}
                 >
@@ -224,7 +224,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
         {/* Pins Count */}
         <View style={styles.countContainer}>
           <Text style={[styles.countText, { color: theme.text }]}>
-            {filteredPins.length} {filteredPins.length === 1 ? 'Pin' : 'Pins'}
+            {filteredPins.length} {filteredPins.length === 1 ? "Pin" : "Pins"}
           </Text>
         </View>
 
@@ -246,13 +246,13 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
             />
             <Text style={[styles.emptyText, { color: theme.text }]}>
               {searchQuery || selectedTags.length > 0
-                ? 'No pins match your filters'
-                : 'No pins yet'}
+                ? "No pins match your filters"
+                : "No pins yet"}
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.text }]}>
               {searchQuery || selectedTags.length > 0
-                ? 'Try adjusting your search or filters'
-                : 'Add pins on the map to see them here!'}
+                ? "Try adjusting your search or filters"
+                : "Add pins on the map to see them here!"}
             </Text>
           </View>
         ) : (
@@ -268,7 +268,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                   styles.pinCard,
                   {
                     backgroundColor:
-                      themeMode === 'dark' ? theme.border : theme.accent,
+                      themeMode === "dark" ? theme.border : theme.accent,
                     borderColor: theme.border,
                   },
                 ]}
@@ -279,7 +279,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                       name="place"
                       size={24}
                       color={
-                        themeMode === 'dark'
+                        themeMode === "dark"
                           ? palette.lightBlueHover
                           : palette.lightBlueAccent
                       }
@@ -295,7 +295,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
 
                 {pin.notes && (
                   <Text
-                    style={[styles.pinNotes, { color: theme.text}]}
+                    style={[styles.pinNotes, { color: theme.text }]}
                     numberOfLines={3}
                   >
                     {pin.notes}
@@ -319,7 +319,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                             styles.pinTagText,
                             {
                               color:
-                                themeMode === 'light'
+                                themeMode === "light"
                                   ? palette.lightBlueText
                                   : theme.text,
                             },
@@ -333,9 +333,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                 )}
 
                 <View style={styles.pinFooter}>
-                  <Text
-                    style={[styles.pinDate, { color: theme.text }]}
-                  >
+                  <Text style={[styles.pinDate, { color: theme.text }]}>
                     {new Date(pin.created_at).toLocaleDateString()}
                   </Text>
                 </View>
@@ -353,11 +351,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    paddingTop: Platform.OS === "ios" ? 10 : 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
   },
@@ -365,23 +363,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitleContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   refreshButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -389,23 +387,25 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 22,
     borderWidth: 1,
+    elevation: 5,
   },
   searchIcon: {
     marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
+    paddingVertical: 0,
   },
   clearButton: {
-    padding: 4,
-    marginLeft: 8,
+    padding: 5,
+    marginLeft: 5,
   },
   tagsContainer: {
     maxHeight: 50,
@@ -417,15 +417,14 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
   },
   tagChip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
+    marginRight: 10,
   },
   tagText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: "600",
   },
   countContainer: {
     paddingHorizontal: 20,
@@ -433,12 +432,12 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 60,
   },
   loadingText: {
@@ -447,21 +446,21 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 60,
     paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptySubtext: {
     fontSize: 14,
     marginTop: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   scrollView: {
     flex: 1,
@@ -477,20 +476,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pinHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
   pinHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     flex: 1,
     gap: 10,
   },
   pinLocation: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     flex: 1,
   },
   pinNotes: {
@@ -499,8 +498,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   pinTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginBottom: 12,
   },
@@ -511,7 +510,7 @@ const styles = StyleSheet.create({
   },
   pinTagText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   pinFooter: {
     marginTop: 8,

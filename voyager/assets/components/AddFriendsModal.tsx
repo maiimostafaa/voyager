@@ -234,23 +234,25 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
             style={[
               styles.searchInputContainer,
               {
-                backgroundColor: themeMode === "light" ? "#ffffff" : "#1a1a1a",
+                backgroundColor:
+                  themeMode === "dark" ? theme.border : theme.accent,
+                borderColor: theme.border,
               },
+              theme.shadows,
             ]}
           >
             <MaterialIcons
               name="search"
-              size={20}
-              color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+              size={24}
+              color={themeMode === "light" ? theme.text : theme.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
-              style={[
-                styles.searchInput,
-                { color: themeMode === "light" ? "#1f2937" : "#f3f4f6" },
-              ]}
+              style={[styles.searchInput, { color: theme.text }]}
               placeholder="Search for users..."
-              placeholderTextColor={themeMode === "light" ? "#9ca3af" : "#6b7280"}
+              placeholderTextColor={
+                themeMode === "light" ? theme.text : theme.textSecondary
+              }
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus={false}
@@ -262,8 +264,8 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
               >
                 <MaterialIcons
                   name="close"
-                  size={18}
-                  color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+                  size={20}
+                  color={themeMode === "light" ? theme.text : theme.textSecondary}
                 />
               </TouchableOpacity>
             )}
@@ -332,24 +334,23 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 22,
+    borderWidth: 1,
+    elevation: 5,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
+    paddingVertical: 0,
   },
   clearButton: {
-    padding: 4,
+    padding: 5,
+    marginLeft: 5,
   },
   listContent: {
     paddingHorizontal: 20,

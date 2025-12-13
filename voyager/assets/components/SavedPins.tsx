@@ -502,24 +502,24 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
             style={[
               styles.searchInputContainer,
               {
-                backgroundColor: themeMode === "light" ? "#ffffff" : "#1a1a1a",
+                backgroundColor:
+                  themeMode === "dark" ? theme.border : theme.accent,
+                borderColor: theme.border,
               },
+              theme.shadows,
             ]}
           >
             <MaterialIcons
               name="search"
               size={24}
-              color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+              color={themeMode === "light" ? theme.text : theme.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
-              style={[
-                styles.searchInput,
-                { color: themeMode === "light" ? "#1f2937" : "#f3f4f6" },
-              ]}
+              style={[styles.searchInput, { color: theme.text }]}
               placeholder="Search your pins..."
               placeholderTextColor={
-                themeMode === "light" ? "#9ca3af" : "#6b7280"
+                themeMode === "light" ? theme.text : theme.textSecondary
               }
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -533,7 +533,7 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
                 <MaterialIcons
                   name="close"
                   size={20}
-                  color={themeMode === "light" ? "#6b7280" : "#9ca3af"}
+                  color={themeMode === "light" ? theme.text : theme.textSecondary}
                 />
               </TouchableOpacity>
             )}
@@ -963,11 +963,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 22,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: 1,
+    elevation: 5,
   },
   searchIcon: {
     marginRight: 10,

@@ -244,24 +244,27 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
     return [];
   }
 
-  // Extract friend IDs
+  // Extract friend IDs and include the user themselves
   const friendIds = (friendships || [])
     .map((f) => (f.user_id === userId ? f.friend_id : f.user_id))
     .filter(Boolean);
+  
+  // Add the user's own ID to show their posts in the feed
+  const allUserIds = [userId, ...friendIds];
 
-  if (friendIds.length === 0) {
+  if (allUserIds.length === 0) {
     return [];
   }
 
-  // Get posts from friends (no limit - show all)
+  // Get posts from user and friends (no limit - show all)
   const { data: posts, error: postsError } = await supabase
     .from('posts')
     .select('*')
-    .in('user_id', friendIds)
+    .in('user_id', allUserIds)
     .order('created_at', { ascending: false });
 
   if (postsError || !posts || posts.length === 0) {
-    console.error('Error fetching friends posts:', postsError);
+    console.error('Error fetching posts:', postsError);
     return [];
   }
 
@@ -277,8 +280,8 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
     supabase.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', postIds),
     // Get user's saves
     supabase.from('post_saves').select('post_id').eq('user_id', userId).in('post_id', postIds),
-    // Get all user profiles
-    supabase.from('profiles').select('id, username, avatar_url').in('id', friendIds),
+    // Get all user profiles (including the current user's profile)
+    supabase.from('profiles').select('id, username, avatar_url').in('id', allUserIds),
   ]);
 
   // Create lookup maps
