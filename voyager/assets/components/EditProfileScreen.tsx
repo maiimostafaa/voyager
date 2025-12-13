@@ -23,7 +23,7 @@ interface EditProfileScreenProps {
 
 const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel }) => {
   const { theme } = useTheme();
-  const { user, profile, refreshProfile, isNewUser } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [username, setUsername] = useState(profile?.username || '');
   const [handle, setHandle] = useState(profile?.handle || '');
   const [fullName, setFullName] = useState(profile?.full_name || '');
@@ -61,12 +61,6 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
 
     if (!username.trim()) {
       Alert.alert('Validation Error', 'Username is required.');
-      return;
-    }
-
-    // Require handle for new users during onboarding
-    if (isNewUser && !handle.trim()) {
-      Alert.alert('Validation Error', 'Please choose a unique handle to complete your profile setup.');
       return;
     }
 
@@ -122,16 +116,6 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
       style={[styles.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={styles.contentContainer}
     >
-      {/* Welcome Message for New Users */}
-      {isNewUser && (
-        <View style={styles.welcomeSection}>
-          <Text style={[styles.welcomeTitle, { color: theme.text }]}>Welcome to Voyager! 🌍</Text>
-          <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
-            Let's set up your profile so your friends can find you. Choose a unique handle to get started.
-          </Text>
-        </View>
-      )}
-
       {/* Avatar Section */}
       <View style={styles.avatarSection}>
         <View style={[styles.avatarContainer, { borderColor: theme.border }]}>
@@ -173,7 +157,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
 
       {/* Handle (Custom User ID) */}
       <View style={styles.inputSection}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Handle {isNewUser && '*'}</Text>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Handle</Text>
         <View style={styles.handleInputContainer}>
           <Text style={[styles.handlePrefix, { color: theme.textSecondary }]}>@</Text>
           <TextInput
@@ -228,7 +212,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
-        {onCancel && !isNewUser && (
+        {onCancel && (
           <TouchableOpacity
             style={[styles.button, styles.cancelButton, { borderColor: theme.border }]}
             onPress={onCancel}
@@ -245,9 +229,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
           {saving ? (
             <ActivityIndicator size="small" color={theme.text} />
           ) : (
-            <Text style={[styles.buttonText, { color: theme.text }]}>
-              {isNewUser ? 'Get Started' : 'Save'}
-            </Text>
+            <Text style={[styles.buttonText, { color: theme.text }]}>Save</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -261,22 +243,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-  },
-  welcomeSection: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 16,
   },
   avatarSection: {
     alignItems: 'center',

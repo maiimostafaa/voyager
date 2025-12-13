@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import type { StatusBarStyle } from 'expo-status-bar';
 import { StyleSheet, View, SafeAreaView, ActivityIndicator } from 'react-native';
@@ -7,48 +7,30 @@ import { ThemeProvider, useTheme } from './assets/themes/themeMode';
 import { AuthProvider, useAuth } from './assets/contexts/AuthContext';
 import Header from './assets/components/Header';
 import Map from './assets/components/Map';
-import MyPins from './assets/components/MyPins';
+import Feed from './assets/components/Feed';
 import TripPlan from './assets/components/TripPlan';
 import AuthScreen from './assets/components/AuthScreen';
+import LoginScreen from './assets/components/LoginScreen';
 import Footer from './assets/components/footer';
 
 type TabKey = 'Map' | 'MyPins' | 'TripPlan' | 'Settings';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
-  const { loading, isNewUser, user } = useAuth();
+  const { loading, user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<TabKey>('Map');
 
-  // Redirect first-time users to the profile/settings page for onboarding
-  useEffect(() => {
-    if (isNewUser) {
-      setActiveTab('Settings');
-    }
-  }, [isNewUser]);
-
-  // Redirect unauthenticated users to the login/profile page
-  useEffect(() => {
-    if (!user) {
-      setActiveTab('Settings');
-    }
-  }, [user]);
-
   const renderContent = () => {
-    // If user is not logged in, only show AuthScreen (which displays LoginScreen)
-    if (!user) {
-      return <AuthScreen />;
-    }
-
     switch (activeTab) {
       case 'Map':
         return <Map />;
       case 'MyPins':
-        return <MyPins />;
+        return <Feed />;
       case 'TripPlan':
         return <TripPlan />;
       case 'Settings':
-        return <AuthScreen />;
+        return <AuthScreen onTripsPress={() => setActiveTab('TripPlan')} />;
       default:
         return <Map />;
     }
@@ -58,16 +40,7 @@ const AppContent: React.FC = () => {
     setActiveTab('Settings');
   };
 
-  // Wrapped tab press handler that prevents navigation for unauthenticated users
-  const handleTabPress = (tab: TabKey) => {
-    if (!user) {
-      // If not logged in, always redirect to Settings (login screen)
-      setActiveTab('Settings');
-      return;
-    }
-    setActiveTab(tab);
-  };
-
+  // Show loading screen while checking auth state
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -79,22 +52,23 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // If user is not logged in, show a simplified layout without header/footer navigation
+  // If user is not logged in, show only the login screen
   if (!user) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
         <StatusBar style={theme.statusBar as StatusBarStyle} />
-        <View style={styles.content}>{renderContent()}</View>
+        <LoginScreen />
       </SafeAreaView>
     );
   }
 
+  // User is logged in - show full app with navigation
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={theme.statusBar as StatusBarStyle} />
       <Header onProfilePress={handleProfilePress} />
       <View style={styles.content}>{renderContent()}</View>
-      <Footer activeTab={activeTab as any} onTabPress={handleTabPress as any} />
+      <Footer activeTab={activeTab} onTabPress={setActiveTab} />
     </SafeAreaView>
   );
 };
