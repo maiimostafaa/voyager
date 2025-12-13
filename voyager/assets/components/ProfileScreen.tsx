@@ -293,52 +293,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </View>
       </View>
 
-      {/* Locations List */}
-      {loadingLocations ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={theme.text} />
-        </View>
-      ) : locations.length > 0 ? (
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
-            },
-          ]}
-        >
-          <View style={styles.infoHeader}>
-            <MaterialIcons name="explore" size={20} color={theme.text} />
-            <Text style={[styles.infoTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
-              Recent Adventures
-            </Text>
-          </View>
-          {locations.slice(0, 10).map((location, index) => (
-            <View
-              key={location.id}
-              style={[
-                styles.locationItem,
-                index < Math.min(locations.length, 10) - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: theme.border,
-                },
-              ]}
-            >
-              <MaterialIcons name="place" size={20} color={theme.text} />
-              <View style={styles.locationInfo}>
-                <Text style={[styles.locationName, { color: theme.text }]}>
-                  {location.location_name}
-                </Text>
-                {location.visited_at && (
-                  <Text style={[styles.locationDate, { color: theme.text }]}>
-                    {new Date(location.visited_at).toLocaleDateString()}
-                  </Text>
-                )}
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
     </ScrollView>
   );
 };
