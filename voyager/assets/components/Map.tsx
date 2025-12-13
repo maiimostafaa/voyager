@@ -538,6 +538,7 @@ const Map: React.FC = () => {
               tags: item.post.tags,
               username: item.username,
               avatar_url: item.avatar_url,
+              user_id: item.post.user_id,
             }))}
             onClose={() => {
               setSelectedLocation(null);

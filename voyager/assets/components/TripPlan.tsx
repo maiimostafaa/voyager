@@ -88,6 +88,34 @@ const TripPlan: React.FC = () => {
     }
   };
 
+  // Separate trips into upcoming and past
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingTrips = tripPlans
+    .filter((trip) => {
+      const endDate = parseDateString(trip.end_date);
+      return endDate >= today;
+    })
+    .sort((a, b) => {
+      // Sort upcoming trips by start date (soonest first)
+      const dateA = parseDateString(a.start_date);
+      const dateB = parseDateString(b.start_date);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+  const pastTrips = tripPlans
+    .filter((trip) => {
+      const endDate = parseDateString(trip.end_date);
+      return endDate < today;
+    })
+    .sort((a, b) => {
+      // Sort past trips by end date (most recent first)
+      const dateA = parseDateString(a.end_date);
+      const dateB = parseDateString(b.end_date);
+      return dateB.getTime() - dateA.getTime();
+    });
+
   if (authLoading || loading) {
     return (
       <View style={[styles.container, styles.centerContent, { backgroundColor: theme.bg }]}>
@@ -129,32 +157,79 @@ const TripPlan: React.FC = () => {
           </View>
         ) : (
           <View style={styles.tripsContainer}>
-            {tripPlans.map((trip) => (
-              <TouchableOpacity
-                key={trip.id}
-                style={[
-                  styles.tripCard,
-                  {
-                    backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
-                    borderColor: theme.border,
-                  },
-                ]}
-                onPress={() => handleTripPress(trip)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.tripCardHeader}>
-                  <MaterialIcons name="luggage" size={24} color={theme.text} />
-                  <View style={styles.tripCardTitleContainer}>
-                    <Text style={[styles.tripTitle, { color: theme.text }]} numberOfLines={1}>
-                      {trip.title}
-                    </Text>
-                    <Text style={[styles.tripDate, { color: theme.text }]}>
-                      {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
-                    </Text>
-                  </View>
+            {/* Upcoming Trips Section */}
+            {upcomingTrips.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionHeader, { color: theme.text }]}>
+                  Upcoming Trips
+                </Text>
+                <View style={styles.sectionContent}>
+                  {upcomingTrips.map((trip) => (
+                    <TouchableOpacity
+                      key={trip.id}
+                      style={[
+                        styles.tripCard,
+                        {
+                          backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => handleTripPress(trip)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.tripCardHeader}>
+                        <MaterialIcons name="luggage" size={24} color={theme.text} />
+                        <View style={styles.tripCardTitleContainer}>
+                          <Text style={[styles.tripTitle, { color: theme.text }]} numberOfLines={1}>
+                            {trip.title}
+                          </Text>
+                          <Text style={[styles.tripDate, { color: theme.text }]}>
+                            {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              </TouchableOpacity>
-            ))}
+              </View>
+            )}
+
+            {/* Past Trips Section */}
+            {pastTrips.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionHeader, { color: theme.text }]}>
+                  Past Trips
+                </Text>
+                <View style={styles.sectionContent}>
+                  {pastTrips.map((trip) => (
+                    <TouchableOpacity
+                      key={trip.id}
+                      style={[
+                        styles.tripCard,
+                        {
+                          backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => handleTripPress(trip)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.tripCardHeader}>
+                        <MaterialIcons name="luggage" size={24} color={theme.text} />
+                        <View style={styles.tripCardTitleContainer}>
+                          <Text style={[styles.tripTitle, { color: theme.text }]} numberOfLines={1}>
+                            {trip.title}
+                          </Text>
+                          <Text style={[styles.tripDate, { color: theme.text }]}>
+                            {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -245,6 +320,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tripsContainer: {
+    gap: 24,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  sectionContent: {
     gap: 16,
   },
   tripCard: {

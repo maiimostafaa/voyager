@@ -17,6 +17,7 @@ import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
 import { Post, PostTag } from "../../lib/types/database.types";
 import { savePost, unsavePost, isPostSaved, likePost, unlikePost, isPostLiked } from "../../lib/supabase/posts";
+import UserProfileView from "./UserProfileView";
 
 const { width } = Dimensions.get("window");
 
@@ -27,6 +28,7 @@ interface LocationCorkboardProps {
     tags: PostTag[];
     username: string;
     avatar_url: string | null;
+    user_id: string;
   }>;
   onClose: () => void;
 }
@@ -53,6 +55,8 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
   const [savingPostId, setSavingPostId] = useState<string | null>(null);
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [likingPostId, setLikingPostId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUsername, setSelectedUsername] = useState<string>("");
 
   useEffect(() => {
     checkSavedPosts();
@@ -163,6 +167,11 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
     }
   };
 
+  const handleUserPress = (userId: string, username: string) => {
+    setSelectedUserId(userId);
+    setSelectedUsername(username);
+  };
+
   const getStickyNoteColor = (index: number) => {
     return STICKY_NOTE_COLORS[index % STICKY_NOTE_COLORS.length];
   };
@@ -248,7 +257,11 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
 
               {/* User info */}
               <View style={styles.noteHeader}>
-                <View style={styles.userInfo}>
+                <TouchableOpacity
+                  style={styles.userInfo}
+                  onPress={() => handleUserPress(item.user_id, item.username)}
+                  activeOpacity={0.7}
+                >
                   {item.avatar_url ? (
                     <Image source={{ uri: item.avatar_url }} style={styles.userAvatar} />
                   ) : (
@@ -259,7 +272,7 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
                   <Text style={styles.username} numberOfLines={1}>
                     @{item.username}
                   </Text>
-                </View>
+                </TouchableOpacity>
                 <Text style={styles.noteDate}>
                   {new Date(item.post.created_at).toLocaleDateString('en-US', { 
                     month: 'short', 
@@ -307,6 +320,19 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
           )}
         </ScrollView>
       </ImageBackground>
+
+      {/* User Profile View Modal */}
+      {selectedUserId && (
+        <UserProfileView
+          visible={selectedUserId !== null}
+          userId={selectedUserId}
+          username={selectedUsername}
+          onClose={() => {
+            setSelectedUserId(null);
+            setSelectedUsername("");
+          }}
+        />
+      )}
     </View>
   );
 };

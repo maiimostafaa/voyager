@@ -15,6 +15,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
 import AddFriendsModal from "./AddFriendsModal";
+import UserProfileView from "./UserProfileView";
 import {
   getFriendsFeed,
   FeedPost,
@@ -33,6 +34,8 @@ const Feed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddFriendsModal, setShowAddFriendsModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUsername, setSelectedUsername] = useState<string>("");
 
   useEffect(() => {
     if (user?.id) {
@@ -42,7 +45,7 @@ const Feed: React.FC = () => {
 
   const loadFeed = async () => {
     if (!user?.id) return;
-    
+
     try {
       setLoading(true);
       const feed = await getFriendsFeed(user.id);
@@ -149,6 +152,11 @@ const Feed: React.FC = () => {
     }
   };
 
+  const handleUserPress = (userId: string, username: string) => {
+    setSelectedUserId(userId);
+    setSelectedUsername(username);
+  };
+
   const renderPost = ({ item }: { item: FeedPost }) => (
     <View
       style={[
@@ -160,7 +168,11 @@ const Feed: React.FC = () => {
     >
       {/* User Header */}
       <View style={styles.postHeader}>
-        <View style={styles.userInfo}>
+        <TouchableOpacity
+          style={styles.userInfo}
+          onPress={() => handleUserPress(item.user.id, item.user.username)}
+          activeOpacity={0.7}
+        >
           {item.user.avatar_url ? (
             <Image
               source={{ uri: item.user.avatar_url }}
@@ -186,7 +198,7 @@ const Feed: React.FC = () => {
               {formatTimeAgo(item.post.created_at)}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Images Carousel */}
@@ -199,10 +211,7 @@ const Feed: React.FC = () => {
         >
           {item.images.map((imageUri, index) => (
             <View key={index} style={styles.imageContainer}>
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.postImage}
-              />
+              <Image source={{ uri: imageUri }} style={styles.postImage} />
             </View>
           ))}
         </ScrollView>
@@ -276,7 +285,8 @@ const Feed: React.FC = () => {
           style={[
             styles.addFriendsButton,
             {
-              backgroundColor: themeMode === "light" ? theme.accent : theme.text,
+              backgroundColor:
+                themeMode === "light" ? theme.accent : theme.text,
             },
           ]}
           onPress={() => setShowAddFriendsModal(true)}
@@ -329,7 +339,9 @@ const Feed: React.FC = () => {
               <Text style={[styles.emptyText, { color: theme.text }]}>
                 No posts yet
               </Text>
-              <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+              <Text
+                style={[styles.emptySubtext, { color: theme.textSecondary }]}
+              >
                 Add friends to see their travel recommendations
               </Text>
             </View>
@@ -346,6 +358,19 @@ const Feed: React.FC = () => {
           loadFeed();
         }}
       />
+
+      {/* User Profile View Modal */}
+      {selectedUserId && (
+        <UserProfileView
+          visible={selectedUserId !== null}
+          userId={selectedUserId}
+          username={selectedUsername}
+          onClose={() => {
+            setSelectedUserId(null);
+            setSelectedUsername("");
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -527,4 +552,3 @@ const styles = StyleSheet.create({
 });
 
 export default Feed;
-
