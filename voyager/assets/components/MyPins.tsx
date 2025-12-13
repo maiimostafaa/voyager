@@ -12,12 +12,13 @@ import {
   Image,
   Modal,
   Dimensions,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 import { palette } from "../themes/palette";
 import { useAuth } from "../contexts/AuthContext";
-import { getPostsWithTags, PostWithTags, getPostImages } from "../../lib/supabase/posts";
+import { getPostsWithTags, PostWithTags, getPostImages, deletePost } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 
 const { width } = Dimensions.get("window");
@@ -111,6 +112,32 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
       prev.includes(tagName)
         ? prev.filter((t) => t !== tagName)
         : [...prev, tagName]
+    );
+  };
+
+  const handleDelete = (pin: PostWithTagsAndImages) => {
+    Alert.alert(
+      "Delete Pin",
+      `Are you sure you want to delete "${pin.location_name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!user?.id) return;
+            const success = await deletePost(pin.id, user.id);
+            if (success) {
+              // Remove from local state
+              setPins((prev) => prev.filter((p) => p.id !== pin.id));
+              setFilteredPins((prev) => prev.filter((p) => p.id !== pin.id));
+              Alert.alert("Deleted", "Pin has been removed.");
+            } else {
+              Alert.alert("Error", "Could not delete pin. Please try again.");
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -311,6 +338,12 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                       {pin.location_name}
                     </Text>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(pin)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="delete" size={24} color={theme.text} />
+                  </TouchableOpacity>
                 </View>
 
                 {/* Images Carousel */}

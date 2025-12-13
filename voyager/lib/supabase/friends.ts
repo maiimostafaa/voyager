@@ -127,13 +127,22 @@ export const removeFriend = async (
   userId: string,
   friendId: string
 ): Promise<boolean> => {
-  const { error } = await supabase
+  // Delete friendship in both directions (user_id -> friend_id and friend_id -> user_id)
+  // We need to check both because friendships can be stored either way
+  const { error: error1 } = await supabase
     .from('friendships')
     .delete()
-    .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`);
+    .eq('user_id', userId)
+    .eq('friend_id', friendId);
 
-  if (error) {
-    console.error('Error removing friend:', error);
+  const { error: error2 } = await supabase
+    .from('friendships')
+    .delete()
+    .eq('user_id', friendId)
+    .eq('friend_id', userId);
+
+  if (error1 || error2) {
+    console.error('Error removing friend:', error1 || error2);
     return false;
   }
 

@@ -11,12 +11,13 @@ import {
   TextInput,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
-import { getFriends } from '../../lib/supabase/friends';
+import { getFriends, removeFriend } from '../../lib/supabase/friends';
 import { Profile } from '../../lib/types/database.types';
 
 interface MyFriendsProps {
@@ -76,6 +77,32 @@ const MyFriends: React.FC<MyFriendsProps> = ({ visible, onClose }) => {
     }
 
     setFilteredFriends(filtered);
+  };
+
+  const handleUnfriend = (friend: Profile) => {
+    Alert.alert(
+      'Unfriend',
+      `Are you sure you want to unfriend @${friend.username}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unfriend',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user?.id) return;
+            const success = await removeFriend(user.id, friend.id);
+            if (success) {
+              // Remove from local state immediately
+              setFriends((prev) => prev.filter((f) => f.id !== friend.id));
+              setFilteredFriends((prev) => prev.filter((f) => f.id !== friend.id));
+              // Don't show alert - just silently remove
+            } else {
+              Alert.alert('Error', 'Could not unfriend. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!visible) return null;
@@ -275,6 +302,14 @@ const MyFriends: React.FC<MyFriendsProps> = ({ visible, onClose }) => {
                       </Text>
                     )}
                   </View>
+                  
+                  {/* Unfriend Button */}
+                  <TouchableOpacity
+                    onPress={() => handleUnfriend(friend)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="person-remove" size={24} color={theme.text} />
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
