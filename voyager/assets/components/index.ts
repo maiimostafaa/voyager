@@ -11,4 +11,5 @@ export { default as EditProfileScreen } from './EditProfileScreen';
 export { default as SavedTrip } from './SavedTrip';
 export { default as MyPins } from './MyPins';
 export { default as MyFriends } from './MyFriends';
+export { default as FetchErrorBanner } from './FetchErrorBanner';
 

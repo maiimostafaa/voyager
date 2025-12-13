@@ -14,6 +14,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
+import { useFetchError } from "../contexts/FetchErrorContext";
 import {
   searchUsers,
   addFriendDirectly,
@@ -33,6 +34,7 @@ interface AddFriendsModalProps {
 const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
+  const { handleFetchError } = useFetchError();
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<UserWithFriendship[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,7 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
       setFriendIds(friendIdsSet);
     } catch (error) {
       console.error("Error loading friends list:", error);
+      handleFetchError(error, "Unable to load friends list.");
     }
   };
 
@@ -84,6 +87,7 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
       setUsers(usersWithFriendship);
     } catch (error) {
       console.error("Error searching users:", error);
+      handleFetchError(error, "Unable to search for users.");
     } finally {
       setLoading(false);
     }

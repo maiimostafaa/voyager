@@ -19,6 +19,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
+import { useFetchError } from "../contexts/FetchErrorContext";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import {
   getSavedPostsWithDetails,
@@ -58,6 +59,7 @@ interface SavedPinsProps {
 const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
+  const { handleFetchError } = useFetchError();
 
   // data states
   const [myPins, setMyPins] = useState<SavedPostWithDetails[]>([]);
@@ -95,6 +97,7 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
       setPinImages(imagesMap);
     } catch (error) {
       console.error("Error fetching my pins:", error);
+      handleFetchError(error, "Unable to load your saved pins.");
     }
   };
 

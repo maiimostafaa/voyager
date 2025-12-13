@@ -12,6 +12,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
+import { useFetchError } from '../contexts/FetchErrorContext';
 import { getPosts } from '../../lib/supabase/posts';
 import { getFriends } from '../../lib/supabase/friends';
 import { supabase } from '../../lib/supabase';
@@ -35,6 +36,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
+  const { handleFetchError } = useFetchError();
   const [postsCount, setPostsCount] = useState(0);
   const [friendsCount, setFriendsCount] = useState(0);
   const [tripsCount, setTripsCount] = useState(0);
@@ -60,6 +62,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       setTripsCount(tripsData.data?.length || 0);
     } catch (error) {
       console.error('Error loading stats:', error);
+      handleFetchError(error, "Unable to load profile stats.");
     } finally {
       setLoadingStats(false);
     }

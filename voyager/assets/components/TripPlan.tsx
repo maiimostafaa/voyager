@@ -12,6 +12,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
+import { useFetchError } from '../contexts/FetchErrorContext';
 import { getTripPlans } from '../../lib/supabase/trips';
 import { TripPlan as TripPlanType } from '../../lib/types/database.types';
 import NewTrip from './NewTrip';
@@ -20,6 +21,7 @@ import SavedTrip from './SavedTrip';
 const TripPlan: React.FC = () => {
   const { theme, themeMode } = useTheme();
   const { user, loading: authLoading } = useAuth();
+  const { handleFetchError } = useFetchError();
   const [tripPlans, setTripPlans] = useState<TripPlanType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTrip, setShowNewTrip] = useState(false);
@@ -42,6 +44,7 @@ const TripPlan: React.FC = () => {
       setTripPlans(trips || []);
     } catch (error) {
       console.error('Error fetching trip plans:', error);
+      handleFetchError(error, "Unable to load your trip plans.");
       setTripPlans([]);
     } finally {
       setLoading(false);

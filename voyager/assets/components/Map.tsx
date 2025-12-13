@@ -14,6 +14,7 @@ import MapView, { Marker, Region } from "react-native-maps";
 import { useTheme } from "../themes/themeMode";
 import { palette } from "../themes/palette";
 import { useAuth } from "../contexts/AuthContext";
+import { useFetchError } from "../contexts/FetchErrorContext";
 import {
   getFriendsPostsWithTags,
   PostWithTags,
@@ -65,6 +66,7 @@ interface SelectedLocation {
 const Map: React.FC = () => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
+  const { handleFetchError } = useFetchError();
   const [posts, setPosts] = useState<PostWithTags[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<PostWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +147,7 @@ const Map: React.FC = () => {
       setFilteredPosts(uniquePosts);
     } catch (error) {
       console.error("Error fetching posts:", error);
+      handleFetchError(error, "Unable to load map pins.");
       setPosts([]);
       setFilteredPosts([]);
     } finally {
@@ -214,6 +217,11 @@ const Map: React.FC = () => {
           },
         }
       );
+      
+      if (!response.ok) {
+        throw new Error(`Search failed with status ${response.status}`);
+      }
+      
       const data: SearchResult[] = await response.json();
       setSearchResults(data);
       setShowResults(data.length > 0);
@@ -227,6 +235,7 @@ const Map: React.FC = () => {
       }
     } catch (error) {
       console.error("Search error:", error);
+      handleFetchError(error, "Unable to search locations.");
       setSearchResults([]);
     } finally {
       setSearching(false);
@@ -328,6 +337,7 @@ const Map: React.FC = () => {
       setLocationPosts(postsWithUsers);
     } catch (error) {
       console.error("Error loading location posts:", error);
+      handleFetchError(error, "Unable to load location details.");
     } finally {
       setLoadingLocation(false);
     }

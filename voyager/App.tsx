@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import type { StatusBarStyle } from 'expo-status-bar';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
@@ -6,6 +6,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { ThemeProvider, useTheme } from './assets/themes/themeMode';
 import { AuthProvider, useAuth } from './assets/contexts/AuthContext';
+import { FetchErrorProvider } from './assets/contexts/FetchErrorContext';
 import Header from './assets/components/Header';
 import Map from './assets/components/Map';
 import Feed from './assets/components/Feed';
@@ -13,6 +14,7 @@ import TripPlan from './assets/components/TripPlan';
 import AuthScreen from './assets/components/AuthScreen';
 import LoginScreen from './assets/components/LoginScreen';
 import Footer from './assets/components/footer';
+import FetchErrorBanner from './assets/components/FetchErrorBanner';
 
 type TabKey = 'Map' | 'MyPins' | 'TripPlan' | 'Settings';
 
@@ -68,6 +70,7 @@ const AppContent: React.FC = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={theme.statusBar as StatusBarStyle} />
       <Header onProfilePress={handleProfilePress} />
+      <FetchErrorBanner />
       <View style={styles.content}>{renderContent()}</View>
       <Footer activeTab={activeTab} onTabPress={setActiveTab} />
     </SafeAreaView>
@@ -90,7 +93,9 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <AppContent />
+          <FetchErrorProvider>
+            <AppContent />
+          </FetchErrorProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

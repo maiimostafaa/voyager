@@ -14,6 +14,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 import { useAuth } from "../contexts/AuthContext";
+import { useFetchError } from "../contexts/FetchErrorContext";
 import AddFriendsModal from "./AddFriendsModal";
 import UserProfileView from "./UserProfileView";
 import {
@@ -31,6 +32,7 @@ const { width } = Dimensions.get("window");
 const Feed: React.FC = () => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
+  const { handleFetchError } = useFetchError();
   const [feedData, setFeedData] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,6 +72,7 @@ const Feed: React.FC = () => {
       setFriendCount(friends.length);
     } catch (error) {
       console.error("[Feed] Error loading feed:", error);
+      handleFetchError(error, "Unable to load your feed.");
     } finally {
       setLoading(false);
     }
