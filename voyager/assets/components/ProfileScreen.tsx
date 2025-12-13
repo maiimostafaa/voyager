@@ -22,9 +22,19 @@ interface ProfileScreenProps {
   onEditPress?: () => void;
   onSignOut?: () => void;
   onMyPinsPress?: () => void;
+  onPostsPress?: () => void;
+  onFriendsPress?: () => void;
+  onTripsPress?: () => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut, onMyPinsPress }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
+  onEditPress, 
+  onSignOut, 
+  onMyPinsPress,
+  onPostsPress,
+  onFriendsPress,
+  onTripsPress,
+}) => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
   const [locations, setLocations] = useState<LocationTraveled[]>([]);
@@ -189,7 +199,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut, o
         )}
       </View>
 
-      {/* Stats Card - Instagram Style */}
+      {/* Stats Card - Instagram Style with Clickable Buttons */}
       <View
         style={[
           styles.statsCard,
@@ -198,36 +208,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onEditPress, onSignOut, o
           },
         ]}
       >
-        <View style={styles.statItem}>
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={onPostsPress}
+          activeOpacity={0.7}
+          disabled={!onPostsPress}
+        >
           <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             {loadingStats ? '-' : postsCount}
           </Text>
           <Text style={[styles.statLabel, { color: theme.text }]}>
             Posts
           </Text>
-        </View>
+        </TouchableOpacity>
         
         <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
         
-        <View style={styles.statItem}>
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={onFriendsPress}
+          activeOpacity={0.7}
+          disabled={!onFriendsPress}
+        >
           <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             {loadingStats ? '-' : friendsCount}
           </Text>
           <Text style={[styles.statLabel, { color: theme.text }]}>
             Friends
           </Text>
-        </View>
+        </TouchableOpacity>
         
         <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
         
-        <View style={styles.statItem}>
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={onTripsPress}
+          activeOpacity={0.7}
+          disabled={!onTripsPress}
+        >
           <Text style={[styles.statNumber, { color: theme.text, fontFamily: theme.fonts.bold }]}>
             {loadingStats ? '-' : tripsCount}
           </Text>
           <Text style={[styles.statLabel, { color: theme.text }]}>
             Trips
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Bio Section */}

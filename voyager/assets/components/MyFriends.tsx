@@ -16,81 +16,66 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
-import { getPostsWithTags, PostWithTags } from '../../lib/supabase/posts';
-import { VALID_TAGS } from '../../lib/types/database.types';
+import { getFriends } from '../../lib/supabase/friends';
+import { Profile } from '../../lib/types/database.types';
 
-interface MyPinsProps {
+interface MyFriendsProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
+const MyFriends: React.FC<MyFriendsProps> = ({ visible, onClose }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
-  const [pins, setPins] = useState<PostWithTags[]>([]);
-  const [filteredPins, setFilteredPins] = useState<PostWithTags[]>([]);
+  const [friends, setFriends] = useState<Profile[]>([]);
+  const [filteredFriends, setFilteredFriends] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (visible && user?.id) {
-      fetchPins();
+      fetchFriends();
     }
   }, [visible, user?.id]);
 
   useEffect(() => {
-    filterPins();
-  }, [searchQuery, selectedTags, pins]);
+    filterFriends();
+  }, [searchQuery, friends]);
 
-  const fetchPins = async () => {
+  const fetchFriends = async () => {
     if (!user?.id) return;
     
     setLoading(true);
     setRefreshing(true);
     try {
-      const userPins = await getPostsWithTags(user.id);
-      setPins(userPins);
-      setFilteredPins(userPins);
+      const userFriends = await getFriends(user.id);
+      setFriends(userFriends);
+      setFilteredFriends(userFriends);
     } catch (error) {
-      console.error('Error fetching pins:', error);
-      setPins([]);
-      setFilteredPins([]);
+      console.error('Error fetching friends:', error);
+      setFriends([]);
+      setFilteredFriends([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const filterPins = () => {
-    let filtered = [...pins];
+  const filterFriends = () => {
+    let filtered = [...friends];
 
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((pin) =>
-        pin.location_name.toLowerCase().includes(query) ||
-        (pin.notes && pin.notes.toLowerCase().includes(query))
+      filtered = filtered.filter(
+        (friend) =>
+          friend.username.toLowerCase().includes(query) ||
+          (friend.full_name && friend.full_name.toLowerCase().includes(query))
       );
     }
 
-    // Filter by tags
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter((pin) =>
-        pin.tags.some((tag) => selectedTags.includes(tag.tag_name))
-      );
-    }
-
-    setFilteredPins(filtered);
-  };
-
-  const toggleTag = (tagName: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagName)
-        ? prev.filter((t) => t !== tagName)
-        : [...prev, tagName]
-    );
+    setFilteredFriends(filtered);
   };
 
   if (!visible) return null;
@@ -114,11 +99,11 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={[styles.headerTitle, { color: theme.text }]}>
-              My Pins
+              My Friends
             </Text>
           </View>
           <TouchableOpacity
-            onPress={fetchPins}
+            onPress={fetchFriends}
             style={[styles.refreshButton, { backgroundColor: theme.hover }]}
             activeOpacity={0.7}
             disabled={refreshing}
@@ -150,7 +135,7 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
             />
             <TextInput
               style={[styles.searchInput, { color: theme.text }]}
-              placeholder="Search your pins..."
+              placeholder="Search friends..."
               placeholderTextColor={theme.text}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -170,89 +155,38 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
           </View>
         </View>
 
-        {/* Tag Filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tagsContainer}
-          contentContainerStyle={styles.tagsContent}
-        >
-          {VALID_TAGS.map((tag) => {
-            const isSelected = selectedTags.includes(tag);
-            return (
-              <TouchableOpacity
-                key={tag}
-                onPress={() => toggleTag(tag)}
-                style={[
-                  styles.tagChip,
-                  {
-                    backgroundColor: isSelected
-                      ? themeMode === 'dark'
-                        ? palette.lightBlueHover
-                        : palette.lightBlueAccent
-                      : theme.hover,
-                    borderColor: isSelected
-                      ? themeMode === 'dark'
-                        ? palette.lightBlueHover
-                        : palette.lightBlueAccent
-                      : theme.border,
-                  },
-                ]}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.tagText,
-                    {
-                      color: isSelected
-                        ? themeMode === 'dark'
-                          ? palette.lightBlueText
-                          : palette.lightBlueText
-                        : themeMode === 'light'
-                        ? palette.lightBlueText
-                        : theme.text,
-                    },
-                  ]}
-                >
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Pins Count */}
+        {/* Friends Count */}
         <View style={styles.countContainer}>
           <Text style={[styles.countText, { color: theme.text }]}>
-            {filteredPins.length} {filteredPins.length === 1 ? 'Pin' : 'Pins'}
+            {filteredFriends.length} {filteredFriends.length === 1 ? 'Friend' : 'Friends'}
           </Text>
         </View>
 
-        {/* Pins List */}
+        {/* Friends List */}
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.text} />
             <Text style={[styles.loadingText, { color: theme.text }]}>
-              Loading your pins...
+              Loading your friends...
             </Text>
           </View>
-        ) : filteredPins.length === 0 ? (
+        ) : filteredFriends.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialIcons
-              name="location-off"
+              name="people-outline"
               size={64}
               color={theme.text}
               style={{ opacity: 0.5 }}
             />
             <Text style={[styles.emptyText, { color: theme.text }]}>
-              {searchQuery || selectedTags.length > 0
-                ? 'No pins match your filters'
-                : 'No pins yet'}
+              {searchQuery
+                ? 'No friends match your search'
+                : 'No friends yet'}
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.text }]}>
-              {searchQuery || selectedTags.length > 0
-                ? 'Try adjusting your search or filters'
-                : 'Add pins on the map to see them here!'}
+              {searchQuery
+                ? 'Try adjusting your search'
+                : 'Start connecting with other travelers!'}
             </Text>
           </View>
         ) : (
@@ -261,11 +195,11 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {filteredPins.map((pin) => (
+            {filteredFriends.map((friend) => (
               <View
-                key={pin.id}
+                key={friend.id}
                 style={[
-                  styles.pinCard,
+                  styles.friendCard,
                   {
                     backgroundColor:
                       themeMode === 'dark' ? theme.border : theme.accent,
@@ -273,71 +207,74 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                   },
                 ]}
               >
-                <View style={styles.pinHeader}>
-                  <View style={styles.pinHeaderLeft}>
-                    <MaterialIcons
-                      name="place"
-                      size={24}
-                      color={
-                        themeMode === 'dark'
-                          ? palette.lightBlueHover
-                          : palette.lightBlueAccent
-                      }
-                    />
-                    <Text
-                      style={[styles.pinLocation, { color: theme.text }]}
-                      numberOfLines={2}
-                    >
-                      {pin.location_name}
-                    </Text>
-                  </View>
-                </View>
-
-                {pin.notes && (
-                  <Text
-                    style={[styles.pinNotes, { color: theme.text}]}
-                    numberOfLines={3}
+                <View style={styles.friendContent}>
+                  {/* Avatar */}
+                  <View
+                    style={[
+                      styles.avatarContainer,
+                      {
+                        borderColor:
+                          themeMode === 'dark'
+                            ? palette.lightBlueHover
+                            : palette.lightBlueAccent,
+                      },
+                    ]}
                   >
-                    {pin.notes}
-                  </Text>
-                )}
-
-                {pin.tags.length > 0 && (
-                  <View style={styles.pinTags}>
-                    {pin.tags.map((tag, index) => (
+                    {friend.avatar_url ? (
+                      <Image
+                        source={{ uri: friend.avatar_url }}
+                        style={styles.avatar}
+                      />
+                    ) : (
                       <View
-                        key={`${pin.id}-${tag.tag_name}-${index}`}
                         style={[
-                          styles.pinTagChip,
+                          styles.avatarPlaceholder,
                           {
-                            backgroundColor: theme.hover,
+                            backgroundColor:
+                              themeMode === 'dark'
+                                ? palette.lightBlueHover
+                                : palette.lightBlueAccent,
                           },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.pinTagText,
-                            {
-                              color:
-                                themeMode === 'light'
-                                  ? palette.lightBlueText
-                                  : theme.text,
-                            },
-                          ]}
-                        >
-                          {tag.tag_name}
-                        </Text>
+                        <MaterialIcons
+                          name="person"
+                          size={32}
+                          color={
+                            themeMode === 'dark'
+                              ? palette.lightBlueText
+                              : palette.lightBlueText
+                          }
+                        />
                       </View>
-                    ))}
+                    )}
                   </View>
-                )}
 
-                <View style={styles.pinFooter}>
-                  <Text
-                    style={[styles.pinDate, { color: theme.text }]}
-                  >
-                    {new Date(pin.created_at).toLocaleDateString()}
-                  </Text>
+                  {/* Friend Info */}
+                  <View style={styles.friendInfo}>
+                    <Text
+                      style={[styles.friendUsername, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      @{friend.username}
+                    </Text>
+                    {friend.full_name && (
+                      <Text
+                        style={[styles.friendFullName, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
+                        {friend.full_name}
+                      </Text>
+                    )}
+                    {friend.bio && (
+                      <Text
+                        style={[styles.friendBio, { color: theme.text }]}
+                        numberOfLines={2}
+                      >
+                        {friend.bio}
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </View>
             ))}
@@ -407,26 +344,6 @@ const styles = StyleSheet.create({
     padding: 4,
     marginLeft: 8,
   },
-  tagsContainer: {
-    maxHeight: 50,
-    marginBottom: 10,
-  },
-  tagsContent: {
-    paddingLeft: 20,
-    paddingRight: 20,
-    paddingBottom: 15,
-  },
-  tagChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  tagText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
   countContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -470,55 +387,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  pinCard: {
+  friendCard: {
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
   },
-  pinHeader: {
+  friendContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    gap: 16,
   },
-  pinHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  avatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendInfo: {
     flex: 1,
-    gap: 10,
   },
-  pinLocation: {
-    fontSize: 18,
+  friendUsername: {
+    fontSize: 16,
     fontWeight: '600',
-    flex: 1,
+    marginBottom: 4,
   },
-  pinNotes: {
+  friendFullName: {
     fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  pinTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  pinTagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  pinTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  pinFooter: {
-    marginTop: 8,
-  },
-  pinDate: {
-    fontSize: 12,
+  friendBio: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
 });
 
-export default MyPins;
+export default MyFriends;
