@@ -148,7 +148,7 @@ export const searchUsers = async (
     .from('profiles')
     .select('*')
     .neq('id', excludeUserId)
-    .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
+    .or(`username.ilike.${query}%,full_name.ilike.${query}%`)
     .limit(20);
 
   if (error) {

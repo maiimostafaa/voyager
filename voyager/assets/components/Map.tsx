@@ -19,6 +19,7 @@ import {
   PostWithTags,
   getPostsByLocation,
   getPostsWithTags,
+  getPostImages,
 } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -74,6 +75,7 @@ const Map: React.FC = () => {
       post: PostWithTags;
       username: string;
       avatar_url: string | null;
+      images: string[];
     }>
   >([]);
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -309,11 +311,18 @@ const Map: React.FC = () => {
         return acc;
       }, {} as Record<string, { username: string; avatar_url: string | null }>);
 
-      const postsWithUsers = postsForLocation.map((post) => ({
-        post,
-        username: profileMap[post.user_id]?.username || "Unknown",
-        avatar_url: profileMap[post.user_id]?.avatar_url || null,
-      }));
+      // Fetch images for each post
+      const postsWithUsers = await Promise.all(
+        postsForLocation.map(async (post) => {
+          const images = await getPostImages(post.id);
+          return {
+            post,
+            username: profileMap[post.user_id]?.username || "Unknown",
+            avatar_url: profileMap[post.user_id]?.avatar_url || null,
+            images: images.map((img) => img.image_url),
+          };
+        })
+      );
 
       console.log("Posts with users:", postsWithUsers.length);
       setLocationPosts(postsWithUsers);
@@ -539,6 +548,7 @@ const Map: React.FC = () => {
               username: item.username,
               avatar_url: item.avatar_url,
               user_id: item.post.user_id,
+              images: item.images,
             }))}
             onClose={() => {
               setSelectedLocation(null);

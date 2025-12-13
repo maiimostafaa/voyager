@@ -21,6 +21,7 @@ import {
   getFriends,
 } from "../../lib/supabase/friends";
 import { Profile } from "../../lib/types/database.types";
+import UserProfileView from "./UserProfileView";
 
 type UserWithFriendship = Profile & { is_friend: boolean };
 
@@ -36,6 +37,8 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
   const [users, setUsers] = useState<UserWithFriendship[]>([]);
   const [loading, setLoading] = useState(false);
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
+  const [selectedProfile, setSelectedProfile] = useState<UserWithFriendship | null>(null);
+  const [profileViewVisible, setProfileViewVisible] = useState(false);
 
   // Load friends list when modal opens
   useEffect(() => {
@@ -144,9 +147,18 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
     }
   };
 
+  const openProfileView = (profile: UserWithFriendship) => {
+    setSelectedProfile(profile);
+    setProfileViewVisible(true);
+  };
+
   const renderUser = ({ item }: { item: UserWithFriendship }) => (
     <View style={[styles.userCard, { borderBottomColor: theme.border }]}>
-      <View style={styles.userInfo}>
+      <TouchableOpacity 
+        style={styles.userInfo}
+        onPress={() => openProfileView(item)}
+        activeOpacity={0.7}
+      >
         {item.avatar_url ? (
           <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
         ) : (
@@ -154,10 +166,13 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
             <MaterialIcons name="person" size={24} color={theme.text} />
           </View>
         )}
-        <Text style={[styles.username, { color: theme.text }]}>
-          {item.username}
-        </Text>
-      </View>
+        <View style={styles.userNameContainer}>
+          <Text style={[styles.username, { color: theme.text }]}>
+            {item.username}
+          </Text>
+          <MaterialIcons name="chevron-right" size={20} color={theme.textSecondary} />
+        </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[
           styles.addButton,
@@ -292,15 +307,28 @@ const AddFriendsModal: React.FC<AddFriendsModalProps> = ({ visible, onClose }) =
                   color={theme.textSecondary}
                 />
                 <Text style={[styles.emptyText, { color: theme.text }]}>
-                  {searchQuery ? "No users found" : "Search for users"}
+                  {searchQuery ? "No matching profiles found" : "Search for users"}
                 </Text>
                 <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
                   {searchQuery
-                    ? "Try searching with a different username"
+                    ? "Try a different name or username"
                     : "Start typing to find friends to add"}
                 </Text>
               </View>
             }
+          />
+        )}
+
+        {/* User Profile View Modal */}
+        {selectedProfile && (
+          <UserProfileView
+            visible={profileViewVisible}
+            userId={selectedProfile.id}
+            username={selectedProfile.username}
+            onClose={() => {
+              setProfileViewVisible(false);
+              setSelectedProfile(null);
+            }}
           />
         )}
       </SafeAreaView>
@@ -366,6 +394,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+  },
+  userNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   avatar: {

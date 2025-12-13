@@ -13,6 +13,7 @@ import {
   Platform,
   Image,
   SafeAreaView,
+  Dimensions,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -32,6 +33,8 @@ import {
 // max photos per pin
 const MAX_PHOTOS = 5;
 
+const { width } = Dimensions.get("window");
+
 // type for pins displayed
 type DisplayPin = {
   id: string;
@@ -44,6 +47,7 @@ type DisplayPin = {
   user_id: string;
   created_by?: { username: string; avatar_url?: string | null };
   also_recommended_by?: Array<{ username: string; avatar_url?: string | null }>;
+  images?: string[];
 };
 
 interface SavedPinsProps {
@@ -57,6 +61,7 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
 
   // data states
   const [myPins, setMyPins] = useState<SavedPostWithDetails[]>([]);
+  const [pinImages, setPinImages] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
   // filter states
@@ -78,6 +83,16 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
     try {
       const savedPosts = await getSavedPostsWithDetails(user.id);
       setMyPins(savedPosts);
+      
+      // Fetch images for each pin
+      const imagesMap: Record<string, string[]> = {};
+      await Promise.all(
+        savedPosts.map(async (item) => {
+          const images = await getPostImages(item.post.id);
+          imagesMap[item.post.id] = images.map((img) => img.image_url);
+        })
+      );
+      setPinImages(imagesMap);
     } catch (error) {
       console.error("Error fetching my pins:", error);
     }
@@ -113,6 +128,7 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
     user_id: item.post.user_id,
     created_by: item.created_by,
     also_recommended_by: item.also_recommended_by,
+    images: pinImages[item.post.id] || [],
   }));
 
   // apply filters
@@ -375,6 +391,22 @@ const SavedPins: React.FC<SavedPinsProps> = ({ visible, onClose }) => {
           ) : null}
           {new Date(item.created_at).toLocaleDateString()}
         </Text>
+
+        {/* Images Carousel */}
+        {item.images && item.images.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.imageCarousel}
+            contentContainerStyle={styles.imageCarouselContent}
+          >
+            {item.images.map((imageUri, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image source={{ uri: imageUri }} style={styles.pinImage} />
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
         {item.notes && (
           <Text
@@ -1066,6 +1098,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
     marginLeft: 32,
+  },
+  imageCarousel: {
+    marginVertical: 12,
+    marginHorizontal: -16,
+  },
+  imageCarouselContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  imageContainer: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  pinImage: {
+    width: width - 100,
+    height: (width - 100) * 0.6,
+    borderRadius: 12,
+    resizeMode: "cover",
   },
   pinNotes: {
     fontSize: 14,

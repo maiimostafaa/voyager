@@ -29,6 +29,7 @@ interface LocationCorkboardProps {
     username: string;
     avatar_url: string | null;
     user_id: string;
+    images?: string[];
   }>;
   onClose: () => void;
 }
@@ -281,6 +282,24 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
                 </Text>
               </View>
 
+              {/* Images */}
+              {item.images && item.images.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.noteImageCarousel}
+                  contentContainerStyle={styles.noteImageCarouselContent}
+                >
+                  {item.images.map((imageUri, imgIndex) => (
+                    <Image
+                      key={imgIndex}
+                      source={{ uri: imageUri }}
+                      style={styles.noteImage}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+
               {/* Notes */}
               {item.post.notes && (
                 <Text style={styles.noteText} numberOfLines={6}>
@@ -455,6 +474,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#666",
     fontWeight: "500",
+  },
+  noteImageCarousel: {
+    marginBottom: 12,
+    marginHorizontal: -16,
+  },
+  noteImageCarouselContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  noteImage: {
+    width: width - 120,
+    height: (width - 120) * 0.6,
+    borderRadius: 8,
+    resizeMode: "cover",
   },
   noteText: {
     fontSize: 14,

@@ -217,40 +217,6 @@ const Feed: React.FC = () => {
         </ScrollView>
       )}
 
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        <View style={styles.leftActions}>
-          <TouchableOpacity
-            onPress={() => toggleLike(item.post.id)}
-            style={styles.actionButton}
-          >
-            <MaterialIcons
-              name={item.is_liked ? "favorite" : "favorite-border"}
-              size={24}
-              color={item.is_liked ? "#ef4444" : theme.text}
-            />
-            <Text
-              style={[
-                styles.actionText,
-                { color: item.is_liked ? "#ef4444" : theme.text },
-              ]}
-            >
-              {item.likes_count}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          onPress={() => toggleSave(item.post.id)}
-          style={styles.actionButton}
-        >
-          <MaterialIcons
-            name={item.is_saved ? "bookmark" : "bookmark-border"}
-            size={24}
-            color={theme.text}
-          />
-        </TouchableOpacity>
-      </View>
-
       {/* Notes */}
       {item.post.notes && (
         <Text style={[styles.notes, { color: theme.text }]}>
@@ -258,8 +224,9 @@ const Feed: React.FC = () => {
         </Text>
       )}
 
-      {/* Tags */}
-      {item.tags.length > 0 && (
+      {/* Tags and Action Buttons Row */}
+      <View style={styles.bottomRow}>
+        {/* Tags */}
         <View style={styles.tagsContainer}>
           {item.tags.map((tag) => (
             <View
@@ -272,7 +239,41 @@ const Feed: React.FC = () => {
             </View>
           ))}
         </View>
-      )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            onPress={() => toggleLike(item.post.id)}
+            style={styles.actionButton}
+          >
+            <MaterialIcons
+              name={item.is_liked ? "favorite" : "favorite-border"}
+              size={22}
+              color={item.is_liked ? "#ef4444" : theme.text}
+            />
+            {item.likes_count > 0 && (
+              <Text
+                style={[
+                  styles.actionText,
+                  { color: item.is_liked ? "#ef4444" : theme.text },
+                ]}
+              >
+                {item.likes_count}
+              </Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => toggleSave(item.post.id)}
+            style={styles.actionButton}
+          >
+            <MaterialIcons
+              name={item.is_saved ? "bookmark" : "bookmark-border"}
+              size={22}
+              color={theme.text}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 
@@ -481,35 +482,36 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
     borderRadius: 16,
   },
-  actionsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  leftActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
   notes: {
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
   },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    flex: 1,
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginLeft: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   tag: {
     paddingHorizontal: 12,

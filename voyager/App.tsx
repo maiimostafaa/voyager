@@ -10,13 +10,14 @@ import Map from './assets/components/Map';
 import Feed from './assets/components/Feed';
 import TripPlan from './assets/components/TripPlan';
 import AuthScreen from './assets/components/AuthScreen';
+import LoginScreen from './assets/components/LoginScreen';
 import Footer from './assets/components/footer';
 
 type TabKey = 'Map' | 'MyPins' | 'TripPlan' | 'Settings';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<TabKey>('Map');
 
@@ -39,6 +40,7 @@ const AppContent: React.FC = () => {
     setActiveTab('Settings');
   };
 
+  // Show loading screen while checking auth state
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -50,6 +52,17 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // If user is not logged in, show only the login screen
+  if (!user) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        <StatusBar style={theme.statusBar as StatusBarStyle} />
+        <LoginScreen />
+      </SafeAreaView>
+    );
+  }
+
+  // User is logged in - show full app with navigation
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={theme.statusBar as StatusBarStyle} />

@@ -11,13 +11,21 @@ import {
   TextInput,
   Image,
   Modal,
+  Dimensions,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../themes/themeMode";
 import { palette } from "../themes/palette";
 import { useAuth } from "../contexts/AuthContext";
-import { getPostsWithTags, PostWithTags } from "../../lib/supabase/posts";
+import { getPostsWithTags, PostWithTags, getPostImages } from "../../lib/supabase/posts";
 import { VALID_TAGS } from "../../lib/types/database.types";
+
+const { width } = Dimensions.get("window");
+
+// Extended type to include images
+interface PostWithTagsAndImages extends PostWithTags {
+  images: string[];
+}
 
 interface MyPinsProps {
   visible: boolean;
@@ -27,8 +35,8 @@ interface MyPinsProps {
 const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
-  const [pins, setPins] = useState<PostWithTags[]>([]);
-  const [filteredPins, setFilteredPins] = useState<PostWithTags[]>([]);
+  const [pins, setPins] = useState<PostWithTagsAndImages[]>([]);
+  const [filteredPins, setFilteredPins] = useState<PostWithTagsAndImages[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -51,8 +59,20 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
     setRefreshing(true);
     try {
       const userPins = await getPostsWithTags(user.id);
-      setPins(userPins);
-      setFilteredPins(userPins);
+      
+      // Fetch images for each pin
+      const pinsWithImages = await Promise.all(
+        userPins.map(async (pin) => {
+          const images = await getPostImages(pin.id);
+          return {
+            ...pin,
+            images: images.map((img) => img.image_url),
+          };
+        })
+      );
+      
+      setPins(pinsWithImages);
+      setFilteredPins(pinsWithImages);
     } catch (error) {
       console.error("Error fetching pins:", error);
       setPins([]);
@@ -293,6 +313,22 @@ const MyPins: React.FC<MyPinsProps> = ({ visible, onClose }) => {
                   </View>
                 </View>
 
+                {/* Images Carousel */}
+                {pin.images && pin.images.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.imageCarousel}
+                    contentContainerStyle={styles.imageCarouselContent}
+                  >
+                    {pin.images.map((imageUri, index) => (
+                      <View key={index} style={styles.imageContainer}>
+                        <Image source={{ uri: imageUri }} style={styles.pinImage} />
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+
                 {pin.notes && (
                   <Text
                     style={[styles.pinNotes, { color: theme.text }]}
@@ -491,6 +527,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     flex: 1,
+  },
+  imageCarousel: {
+    marginBottom: 12,
+    marginHorizontal: -16,
+  },
+  imageCarouselContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  imageContainer: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  pinImage: {
+    width: width - 100,
+    height: (width - 100) * 0.6,
+    borderRadius: 12,
+    resizeMode: "cover",
   },
   pinNotes: {
     fontSize: 14,
