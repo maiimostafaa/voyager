@@ -6,15 +6,23 @@ import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from './LoginScreen';
 import ProfileScreen from './ProfileScreen';
 import EditProfileScreen from './EditProfileScreen';
+import SavedPins from './SavedPins';
 import MyPins from './MyPins';
+import MyFriends from './MyFriends';
 
 type ViewMode = 'profile' | 'edit';
 
-const AuthScreen: React.FC = () => {
+interface AuthScreenProps {
+  onTripsPress?: () => void;
+}
+
+const AuthScreen: React.FC<AuthScreenProps> = ({ onTripsPress }) => {
   const { theme } = useTheme();
   const { user, profile, loading, signOut } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('profile');
   const [showMyPins, setShowMyPins] = useState(false);
+  const [showMyPinsModal, setShowMyPinsModal] = useState(false);
+  const [showMyFriends, setShowMyFriends] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -61,12 +69,27 @@ const AuthScreen: React.FC = () => {
         onEditPress={() => setViewMode('edit')}
         onSignOut={handleLogout}
         onMyPinsPress={() => setShowMyPins(true)}
+        onTripsPress={onTripsPress}
+        onPostsPress={() => setShowMyPinsModal(true)}
+        onFriendsPress={() => setShowMyFriends(true)}
+      />
+      
+      {/* Saved Pins Modal */}
+      <SavedPins 
+        visible={showMyPins}
+        onClose={() => setShowMyPins(false)}
       />
       
       {/* My Pins Modal */}
       <MyPins 
-        visible={showMyPins}
-        onClose={() => setShowMyPins(false)}
+        visible={showMyPinsModal}
+        onClose={() => setShowMyPinsModal(false)}
+      />
+      
+      {/* My Friends Modal */}
+      <MyFriends 
+        visible={showMyFriends}
+        onClose={() => setShowMyFriends(false)}
       />
     </View>
   );
