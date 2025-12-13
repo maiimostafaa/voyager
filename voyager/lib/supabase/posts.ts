@@ -203,18 +203,56 @@ export const getPostsByLocation = async (locationName: string): Promise<PostWith
 };
 
 export const getPostImages = async (postId: string): Promise<PostImage[]> => {
-  const { data, error } = await supabase
-    .from('post_images')
-    .select('*')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true });
+  // Get the post to find the user_id
+  const { data: post, error: postError } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', postId)
+    .single();
 
-  if (error) {
-    console.error('Error fetching post images:', error);
+  if (postError || !post) {
+    console.error('Error fetching post for images:', postError);
     return [];
   }
 
-  return data || [];
+  // Pull images directly from storage bucket 'post-images'
+  const storagePath = `${post.user_id}/${postId}/`;
+  const { data: files, error: listError } = await supabase.storage
+    .from('post-images')
+    .list(storagePath, {
+      limit: 100,
+      offset: 0,
+    });
+
+  if (listError) {
+    console.error('Error listing images from storage:', listError);
+    return [];
+  }
+
+  if (!files || files.length === 0) {
+    console.log(`No images found in storage at path: ${storagePath}`);
+    return [];
+  }
+
+  // Convert storage files to PostImage format
+  const images: PostImage[] = files
+    .filter((file) => file.name) // Only include files with names
+    .map((file, index) => {
+      const filePath = `${storagePath}${file.name}`;
+      const { data: { publicUrl } } = supabase.storage
+        .from('post-images')
+        .getPublicUrl(filePath);
+
+      return {
+        id: (file as any).id || `${postId}-${file.name}-${index}`, // Generate ID if not present
+        post_id: postId,
+        image_url: publicUrl,
+        created_at: (file as any).created_at || file.updated_at || new Date().toISOString(),
+      };
+    });
+
+  console.log(`Fetched ${images.length} images for post ${postId} from storage:`, images);
+  return images;
 };
 
 export interface FeedPost {
@@ -494,6 +532,32 @@ export const uploadPostImage = async (
       .from('post-images')
       .getPublicUrl(filePath);
 
+    // Save the image URL to the post_images table
+    const { data: insertedData, error: insertError } = await supabase
+      .from('post_images')
+      .insert({
+        post_id: postId,
+        image_url: publicUrl,
+      })
+      .select();
+
+    if (insertError) {
+      console.error('Error saving image URL to database:', insertError);
+      console.error('Insert error details:', {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+      });
+      // Still return the URL even if database insert fails
+      return publicUrl;
+    }
+
+    console.log('Image uploaded and saved to database:', {
+      postId,
+      imageUrl: publicUrl,
+      insertedRecord: insertedData,
+    });
     return publicUrl;
   } catch (error) {
     console.error('Error in uploadPostImage:', error);

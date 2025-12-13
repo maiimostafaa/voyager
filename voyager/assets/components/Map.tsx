@@ -20,8 +20,9 @@ import {
   getPostsByLocation,
   getPostsWithTags,
   getPostImages,
+  getPostTags,
 } from "../../lib/supabase/posts";
-import { VALID_TAGS } from "../../lib/types/database.types";
+import { VALID_TAGS, PostTag, PostImage } from "../../lib/types/database.types";
 import { MaterialIcons } from "@expo/vector-icons";
 import NewPin from "./NewPin";
 import LocationCorkboard from "./LocationCorkboard";
@@ -73,6 +74,7 @@ const Map: React.FC = () => {
   const [locationPosts, setLocationPosts] = useState<
     Array<{
       post: PostWithTags;
+      tags: PostTag[];
       username: string;
       avatar_url: string | null;
       images: string[];
@@ -311,20 +313,40 @@ const Map: React.FC = () => {
         return acc;
       }, {} as Record<string, { username: string; avatar_url: string | null }>);
 
-      // Fetch images for each post
+      // Fetch images and tags for each post
       const postsWithUsers = await Promise.all(
         postsForLocation.map(async (post) => {
-          const images = await getPostImages(post.id);
+          const [images, tags] = await Promise.all([
+            getPostImages(post.id),
+            getPostTags(post.id),
+          ]);
+          
+          // Debug: Log what we got from getPostImages
+          console.log(`Post ${post.id} - Raw images from DB:`, images);
+          console.log(`Post ${post.id} - Image URLs:`, images.map((img: PostImage) => img.image_url));
+          
+          const imageUrls = images
+            .map((img: PostImage) => img.image_url)
+            .filter((url): url is string => !!url && url.trim() !== ''); // Filter out null/empty URLs
+          
           return {
             post,
+            tags,
             username: profileMap[post.user_id]?.username || "Unknown",
             avatar_url: profileMap[post.user_id]?.avatar_url || null,
-            images: images.map((img) => img.image_url),
+            images: imageUrls,
           };
         })
       );
 
       console.log("Posts with users:", postsWithUsers.length);
+      // Debug: Log images for each post
+      postsWithUsers.forEach((item, idx) => {
+        console.log(`Post ${idx} (${item.post.id}) - Final images:`, {
+          count: item.images.length,
+          urls: item.images,
+        });
+      });
       setLocationPosts(postsWithUsers);
     } catch (error) {
       console.error("Error loading location posts:", error);
@@ -544,11 +566,11 @@ const Map: React.FC = () => {
             locationName={selectedLocation}
             posts={locationPosts.map((item) => ({
               post: item.post,
-              tags: item.post.tags,
+              tags: item.tags || [],
               username: item.username,
               avatar_url: item.avatar_url,
               user_id: item.post.user_id,
-              images: item.images,
+              images: item.images || [],
             }))}
             onClose={() => {
               setSelectedLocation(null);

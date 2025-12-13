@@ -62,6 +62,15 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
   useEffect(() => {
     checkSavedPosts();
     checkLikedPosts();
+    // Debug: Log posts and their images
+    console.log('LocationCorkboard received posts:', posts.length);
+    posts.forEach((post, idx) => {
+      console.log(`Post ${idx} (${post.post.id}):`, {
+        hasImages: !!post.images,
+        imageCount: post.images?.length || 0,
+        images: post.images,
+      });
+    });
   }, [posts, user]);
 
   const checkSavedPosts = async () => {
@@ -283,22 +292,57 @@ const LocationCorkboard: React.FC<LocationCorkboardProps> = ({
               </View>
 
               {/* Images */}
-              {item.images && item.images.length > 0 && (
+              {item.images && item.images.length > 0 ? (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.noteImageCarousel}
                   contentContainerStyle={styles.noteImageCarouselContent}
                 >
-                  {item.images.map((imageUri, imgIndex) => (
-                    <Image
-                      key={imgIndex}
-                      source={{ uri: imageUri }}
-                      style={styles.noteImage}
-                    />
-                  ))}
+                  {item.images
+                    .filter((imageUri) => {
+                      const isValid = imageUri && typeof imageUri === 'string' && imageUri.trim() !== '';
+                      if (!isValid) {
+                        console.warn('Filtered out invalid image URI:', imageUri);
+                      }
+                      return isValid;
+                    })
+                    .map((imageUri, imgIndex) => {
+                      // Ensure URL is absolute (starts with http:// or https://)
+                      const fullUrl = imageUri.startsWith('http://') || imageUri.startsWith('https://')
+                        ? imageUri
+                        : imageUri.startsWith('/')
+                        ? `https://${imageUri}` // This shouldn't happen, but handle it
+                        : imageUri;
+                      
+                      return (
+                        <View key={`${item.post.id}-img-${imgIndex}`} style={styles.noteImageContainer}>
+                          <Image
+                            source={{ uri: fullUrl }}
+                            style={styles.noteImage}
+                            resizeMode="cover"
+                            onError={(error) => {
+                              console.error('Error loading image in corkboard:', {
+                                postId: item.post.id,
+                                imageIndex: imgIndex,
+                                originalUri: imageUri,
+                                fullUrl: fullUrl,
+                                error: error,
+                              });
+                            }}
+                            onLoad={() => {
+                              console.log('Image loaded successfully:', {
+                                postId: item.post.id,
+                                imageIndex: imgIndex,
+                                url: fullUrl,
+                              });
+                            }}
+                          />
+                        </View>
+                      );
+                    })}
                 </ScrollView>
-              )}
+              ) : null}
 
               {/* Notes */}
               {item.post.notes && (
@@ -483,11 +527,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 8,
   },
+  noteImageContainer: {
+    marginRight: 8,
+  },
   noteImage: {
     width: width - 120,
     height: (width - 120) * 0.6,
     borderRadius: 8,
-    resizeMode: "cover",
+    backgroundColor: "#f0f0f0",
   },
   noteText: {
     fontSize: 14,
