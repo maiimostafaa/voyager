@@ -351,24 +351,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
           ))}
         </View>
-      ) : (
-        <View
-          style={[
-            styles.emptyCard,
-            {
-              backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
-            },
-          ]}
-        >
-          <MaterialIcons name="flight-takeoff" size={48} color={theme.text} style={{ opacity: 0.5 }} />
-          <Text style={[styles.emptyTitle, { color: theme.text, fontFamily: theme.fonts.bold }]}>
-            No adventures yet
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: theme.text }]}>
-            Start exploring and your travels will appear here!
-          </Text>
-        </View>
-      )}
+      ) : null}
     </ScrollView>
   );
 };
@@ -383,6 +366,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
+    marginTop: 60,
     marginBottom: 24,
   },
   avatarContainer: {
