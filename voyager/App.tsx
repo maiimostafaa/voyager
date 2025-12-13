@@ -29,7 +29,7 @@ const AppContent: React.FC = () => {
       case 'TripPlan':
         return <TripPlan />;
       case 'Settings':
-        return <AuthScreen />;
+        return <AuthScreen onTripsPress={() => setActiveTab('TripPlan')} />;
       default:
         return <Map />;
     }
