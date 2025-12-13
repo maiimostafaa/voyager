@@ -25,6 +25,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
   const { theme } = useTheme();
   const { user, profile, refreshProfile } = useAuth();
   const [username, setUsername] = useState(profile?.username || '');
+  const [handle, setHandle] = useState(profile?.handle || '');
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [bio, setBio] = useState(profile?.bio || '');
   const [avatarUri, setAvatarUri] = useState<string | null>(profile?.avatar_url || null);
@@ -81,6 +82,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
       // Update profile
       const updated = await updateProfile(user.id, {
         username: username.trim(),
+        handle: handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || null,
         full_name: fullName.trim() || null,
         bio: bio.trim() || null,
         avatar_url: avatarUrl,
@@ -151,6 +153,28 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
           placeholderTextColor={theme.textSecondary}
           editable={!saving}
         />
+      </View>
+
+      {/* Handle (Custom User ID) */}
+      <View style={styles.inputSection}>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Handle</Text>
+        <View style={styles.handleInputContainer}>
+          <Text style={[styles.handlePrefix, { color: theme.textSecondary }]}>@</Text>
+          <TextInput
+            style={[styles.handleInput, { backgroundColor: theme.accent, color: theme.text, borderColor: theme.border }]}
+            value={handle}
+            onChangeText={(text) => setHandle(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+            placeholder="your_unique_handle"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!saving}
+            maxLength={20}
+          />
+        </View>
+        <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+          Letters, numbers, and underscores only. This is your unique identifier.
+        </Text>
       </View>
 
       {/* Full Name */}
@@ -278,6 +302,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  handleInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  handlePrefix: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  handleInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
   },
   textArea: {
     minHeight: 100,

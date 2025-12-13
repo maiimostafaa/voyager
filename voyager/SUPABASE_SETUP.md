@@ -141,3 +141,5 @@ Once Supabase is set up:
 
 For more information, see the [Supabase Documentation](https://supabase.com/docs).
 
+
+

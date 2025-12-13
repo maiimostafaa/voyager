@@ -12,11 +12,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
 import { palette } from '../themes/palette';
 import { useAuth } from '../contexts/AuthContext';
-import { getLocationsTraveled } from '../../lib/supabase/locations';
 import { getPosts } from '../../lib/supabase/posts';
 import { getFriends } from '../../lib/supabase/friends';
 import { supabase } from '../../lib/supabase';
-import { LocationTraveled } from '../../lib/types/database.types';
 
 interface ProfileScreenProps {
   onEditPress?: () => void;
@@ -37,8 +35,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const { theme, themeMode } = useTheme();
   const { user, profile } = useAuth();
-  const [locations, setLocations] = useState<LocationTraveled[]>([]);
-  const [loadingLocations, setLoadingLocations] = useState(true);
   const [postsCount, setPostsCount] = useState(0);
   const [friendsCount, setFriendsCount] = useState(0);
   const [tripsCount, setTripsCount] = useState(0);
@@ -46,18 +42,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   useEffect(() => {
     if (user?.id) {
-      loadLocations();
       loadStats();
     }
   }, [user?.id]);
-
-  const loadLocations = async () => {
-    if (!user?.id) return;
-    setLoadingLocations(true);
-    const data = await getLocationsTraveled(user.id);
-    setLocations(data);
-    setLoadingLocations(false);
-  };
 
   const loadStats = async () => {
     if (!user?.id) return;
@@ -293,9 +280,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={[styles.infoRowLabel, { color: theme.text }]}>User ID</Text>
+          <Text style={[styles.infoRowLabel, { color: theme.text }]}>Handle</Text>
           <Text style={[styles.infoRowValue, { color: theme.text }]} numberOfLines={1}>
-            {user.id.slice(0, 8)}...{user.id.slice(-4)}
+            {profile.handle ? `@${profile.handle}` : 'Not set'}
           </Text>
         </View>
         <View style={styles.infoRow}>
@@ -499,41 +486,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     maxWidth: '60%',
     textAlign: 'right',
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  locationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  locationName: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  locationDate: {
-    fontSize: 12,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    padding: 32,
-    borderRadius: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
   },
 });
 

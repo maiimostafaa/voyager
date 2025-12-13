@@ -12,6 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE NOT NULL,
+  handle TEXT UNIQUE,
   full_name TEXT,
   bio TEXT,
   avatar_url TEXT,
@@ -19,6 +20,10 @@ CREATE TABLE IF NOT EXISTS profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
+
+-- Migration: Add handle column if it doesn't exist (for existing databases)
+-- Run this separately if you already have the profiles table:
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS handle TEXT UNIQUE;
 
 -- Locations traveled table
 CREATE TABLE IF NOT EXISTS locations_traveled (
