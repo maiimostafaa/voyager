@@ -22,7 +22,7 @@ interface EditProfileScreenProps {
 }
 
 const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel }) => {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
   const { user, profile, refreshProfile } = useAuth();
   const [username, setUsername] = useState(profile?.username || '');
   const [handle, setHandle] = useState(profile?.handle || '');
@@ -115,99 +115,157 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
     <ScrollView
       style={[styles.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
     >
-      {/* Avatar Section */}
-      <View style={styles.avatarSection}>
-        <View style={[styles.avatarContainer, { borderColor: theme.border }]}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.accent }]}>
-              <MaterialIcons name="person" size={48} color={theme.text} />
-            </View>
-          )}
-          {uploadingImage && (
-            <View style={styles.uploadingOverlay}>
-              <ActivityIndicator size="small" color={theme.text} />
-            </View>
-          )}
+      {/* Avatar Section Card */}
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View style={styles.sectionHeader}>
+          <MaterialIcons name="photo-camera" size={20} color={theme.text} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Profile Photo</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.changeAvatarButton, { backgroundColor: theme.accent }]}
-          onPress={pickImage}
-          disabled={uploadingImage}
-        >
-          <MaterialIcons name="camera-alt" size={20} color={theme.text} />
-          <Text style={[styles.changeAvatarText, { color: theme.text }]}>Change Photo</Text>
-        </TouchableOpacity>
+        <View style={styles.avatarSection}>
+          <View style={[styles.avatarContainer, { borderColor: theme.border }]}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.hover }]}>
+                <MaterialIcons name="person" size={48} color={theme.text} />
+              </View>
+            )}
+            {uploadingImage && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator size="small" color={theme.text} />
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.changeAvatarButton, { backgroundColor: theme.hover }]}
+            onPress={pickImage}
+            disabled={uploadingImage}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="camera-alt" size={18} color={theme.text} />
+            <Text style={[styles.changeAvatarText, { color: theme.text }]}>Change Photo</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Username */}
-      <View style={styles.inputSection}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Username *</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.accent, color: theme.text, borderColor: theme.border }]}
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Enter username"
-          placeholderTextColor={theme.textSecondary}
-          editable={!saving}
-        />
-      </View>
+      {/* Basic Information Card */}
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View style={styles.sectionHeader}>
+          <MaterialIcons name="account-circle" size={20} color={theme.text} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Basic Information</Text>
+        </View>
 
-      {/* Handle (Custom User ID) */}
-      <View style={styles.inputSection}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Handle</Text>
-        <View style={styles.handleInputContainer}>
-          <Text style={[styles.handlePrefix, { color: theme.textSecondary }]}>@</Text>
+        {/* Username */}
+        <View style={styles.inputSection}>
+          <Text style={[styles.label, { color: theme.text }]}>Username *</Text>
           <TextInput
-            style={[styles.handleInput, { backgroundColor: theme.accent, color: theme.text, borderColor: theme.border }]}
-            value={handle}
-            onChangeText={(text) => setHandle(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-            placeholder="your_unique_handle"
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            autoCorrect={false}
+            style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+            value={username}
+            onChangeText={setUsername}
+            placeholder="Enter username"
+            placeholderTextColor={theme.text}
             editable={!saving}
-            maxLength={20}
           />
         </View>
-        <Text style={[styles.helperText, { color: theme.textSecondary }]}>
-          Letters, numbers, and underscores only. This is your unique identifier.
-        </Text>
+
+        {/* Full Name */}
+        <View style={styles.inputSection}>
+          <Text style={[styles.label, { color: theme.text }]}>Full Name</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Enter your full name"
+            placeholderTextColor={theme.text}
+            editable={!saving}
+          />
+        </View>
       </View>
 
-      {/* Full Name */}
-      <View style={styles.inputSection}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Full Name</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.accent, color: theme.text, borderColor: theme.border }]}
-          value={fullName}
-          onChangeText={setFullName}
-          placeholder="Enter your full name"
-          placeholderTextColor={theme.textSecondary}
-          editable={!saving}
-        />
+      {/* Handle Card */}
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View style={styles.sectionHeader}>
+          <MaterialIcons name="alternate-email" size={20} color={theme.text} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Handle</Text>
+        </View>
+        <View style={styles.inputSection}>
+          <View style={styles.handleInputContainer}>
+            <Text style={[styles.handlePrefix, { color: theme.text }]}>@</Text>
+            <TextInput
+              style={[styles.handleInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+              value={handle}
+              onChangeText={(text) => setHandle(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+              placeholder="your_unique_handle"
+              placeholderTextColor={theme.text}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!saving}
+              maxLength={20}
+            />
+          </View>
+          <Text style={[styles.helperText, { color: theme.text }]}>
+            Letters, numbers, and underscores only. This is your unique identifier.
+          </Text>
+        </View>
       </View>
 
-      {/* Bio */}
-      <View style={styles.inputSection}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Bio</Text>
-        <TextInput
-          style={[
-            styles.input,
-            styles.textArea,
-            { backgroundColor: theme.accent, color: theme.text, borderColor: theme.border },
-          ]}
-          value={bio}
-          onChangeText={setBio}
-          placeholder="Tell us about yourself..."
-          placeholderTextColor={theme.textSecondary}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          editable={!saving}
-        />
+      {/* Bio Card */}
+      <View
+        style={[
+          styles.sectionCard,
+          {
+            backgroundColor: themeMode === 'dark' ? theme.border : theme.accent,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View style={styles.sectionHeader}>
+          <MaterialIcons name="description" size={20} color={theme.text} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>About Me</Text>
+        </View>
+        <View style={styles.inputSection}>
+          <TextInput
+            style={[
+              styles.input,
+              styles.textArea,
+              { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+            ]}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Tell us about yourself..."
+            placeholderTextColor={theme.text}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            editable={!saving}
+          />
+        </View>
       </View>
 
       {/* Action Buttons */}
@@ -217,6 +275,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
             style={[styles.button, styles.cancelButton, { borderColor: theme.border }]}
             onPress={onCancel}
             disabled={saving}
+            activeOpacity={0.7}
           >
             <Text style={[styles.buttonText, { color: theme.text }]}>Cancel</Text>
           </TouchableOpacity>
@@ -225,11 +284,12 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ onSave, onCancel 
           style={[styles.button, styles.saveButton, { backgroundColor: theme.accent }]}
           onPress={handleSave}
           disabled={saving || uploadingImage}
+          activeOpacity={0.7}
         >
           {saving ? (
             <ActivityIndicator size="small" color={theme.text} />
           ) : (
-            <Text style={[styles.buttonText, { color: theme.text }]}>Save</Text>
+            <Text style={[styles.buttonText, { color: theme.text }]}>Save Changes</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -243,17 +303,33 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
+    paddingBottom: 40,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   avatarSection: {
     alignItems: 'center',
-    marginBottom: 32,
   },
   avatarContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 3,
-    marginBottom: 16,
+    marginBottom: 12,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -280,7 +356,7 @@ const styles = StyleSheet.create({
   changeAvatarButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
     gap: 6,
@@ -290,7 +366,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   inputSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -330,7 +406,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 20,
+    marginTop: 8,
     marginBottom: 40,
   },
   button: {
