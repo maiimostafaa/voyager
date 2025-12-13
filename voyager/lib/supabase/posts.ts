@@ -318,11 +318,9 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
   // Get all related data in parallel
   const postIds = posts.map(p => p.id);
   
-  const [tagsData, imagesData, likesData, savesData, profilesData] = await Promise.all([
+  const [tagsData, likesData, savesData, profilesData] = await Promise.all([
     // Get all tags
     supabase.from('post_tags').select('*').in('post_id', postIds),
-    // Get all images
-    supabase.from('post_images').select('*').in('post_id', postIds).order('created_at', { ascending: true }),
     // Get user's likes
     supabase.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', postIds),
     // Get user's saves
@@ -338,11 +336,14 @@ export const getFriendsFeed = async (userId: string): Promise<FeedPost[]> => {
     return acc;
   }, {} as Record<string, PostTag[]>);
 
-  const imagesByPostId = (imagesData.data || []).reduce((acc, img) => {
-    if (!acc[img.post_id]) acc[img.post_id] = [];
-    acc[img.post_id].push(img.image_url);
-    return acc;
-  }, {} as Record<string, string[]>);
+  // Fetch images from storage for each post (using getPostImages which pulls from storage)
+  const imagesByPostId: Record<string, string[]> = {};
+  await Promise.all(
+    postIds.map(async (postId) => {
+      const images = await getPostImages(postId);
+      imagesByPostId[postId] = images.map((img) => img.image_url);
+    })
+  );
 
   const likedPostIds = new Set((likesData.data || []).map(l => l.post_id));
   const savedPostIds = new Set((savesData.data || []).map(s => s.post_id));

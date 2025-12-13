@@ -409,17 +409,6 @@ const SelectActivity: React.FC<SelectActivityProps> = ({
                     >
                       {post.location_name}
                     </Text>
-                    {post.notes && (
-                      <Text
-                        style={[
-                          styles.postNotes,
-                          { color: theme.textSecondary },
-                        ]}
-                        numberOfLines={2}
-                      >
-                        {post.notes}
-                      </Text>
-                    )}
                     {post.tags.length > 0 && (
                       <View style={styles.postTags}>
                         {post.tags.slice(0, 3).map((tag) => (
