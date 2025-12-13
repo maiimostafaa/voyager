@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../themes/themeMode';
@@ -18,8 +18,15 @@ interface AuthScreenProps {
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onTripsPress }) => {
   const { theme } = useTheme();
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut, isNewUser } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('profile');
+
+  // Automatically show edit screen for first-time users to complete onboarding
+  useEffect(() => {
+    if (isNewUser) {
+      setViewMode('edit');
+    }
+  }, [isNewUser]);
   const [showMyPins, setShowMyPins] = useState(false);
   const [showMyPinsModal, setShowMyPinsModal] = useState(false);
   const [showMyFriends, setShowMyFriends] = useState(false);

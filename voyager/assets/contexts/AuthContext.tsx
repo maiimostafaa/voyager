@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  isNewUser: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -121,6 +122,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Check if user is new (hasn't completed profile setup)
+  // A user is considered new if they have a profile but haven't set a handle yet
+  const isNewUser = !!(user && profile && !profile.handle);
+
   return (
     <AuthContext.Provider
       value={{
@@ -128,6 +133,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         user,
         profile,
         loading,
+        isNewUser,
         signOut,
         refreshProfile,
       }}
